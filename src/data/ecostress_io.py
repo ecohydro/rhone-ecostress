@@ -1,6 +1,7 @@
 from pathlib import Path
 import xarray as xa
 import pandas as pd
+import rioxarray
 
 def separate_extensions(folder_path, tif_pattern="*.tif"):
     """
@@ -31,3 +32,24 @@ def read_mask_ecostress_scene(tif_path):
     et = path_date_to_coord(filename, et)
     et = et.where(~et.isin(-1e+13))
     return et
+
+def clip_box_scene(da, bounds_tuple):
+    """
+    Will clip if bounds intersect, if not returns None.
+    """
+    xmin, ymin, xmax, ymax = bounds_tuple # overide gdf bounds
+    try:
+        da_clipped = da.rio.clip_box(
+            minx=xmin,
+            miny=ymin,
+            maxx=xmax,
+            maxy=ymax,
+        )
+        return da_clipped
+    except rioxarray.exceptions.NoDataInBounds:
+        print("The whole scene falls outside the aoi bounds, skipping and returning None")
+        return None
+    except rioxarray.exceptions.OneDimensionalRaster:
+        print("The data array below is one dimensional for some reason, returning None")
+        print(da)
+        return None
