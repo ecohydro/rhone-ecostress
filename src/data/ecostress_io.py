@@ -8,8 +8,6 @@ import geopandas as gpd
 from rasterio.enums import Resampling
 import dask
 import os
-from dask.distributed import Client
-client = Client() #this only works on tana not forge
 
 def separate_extensions(folder_path, tif_pattern="*.tif"):
     """
@@ -30,15 +28,20 @@ def path_date_to_coord(filename, da):
     da.name = filename
     return da
 
-@dask.delayed
-def read_mask_ecostress_scene(tif_path):
+def read_ecostress_scene(tif_path):
     """
     Tested on ET_daily layer
     """
     filename = tif_path.name
-    print("reading " + filename)
     et = xa.open_rasterio(tif_path)
     et = path_date_to_coord(filename, et)
+    return et
+
+def read_mask_ecostress_scene(tif_path):
+    """
+    Tested on ET_daily layer
+    """
+    et = read_ecostress_scene(tif_path)
     et = et.where(~et.isin(-1e+13)) # for daily Et layer, this is present and needs to be set to NaN. not sure if in all layers
     return et
 
@@ -46,19 +49,28 @@ def read_scenes(tif_paths, chunks={"band":1}):
     scenes = []
     for path in tif_paths:
         da = xa.open_rasterio(path, chunks=chunks)
+        da = path_date_to_coord(path.name, da)
         scenes.append(da)
     return scenes
 
+def clip_and_save(paths, bounds_tuple, filter_nan, outDir):
+    scene_paths = []
+    for path in paths:
+        da = read_mask_ecostress_scene(path)
+        scene_da = clip_box_scene(da, bounds_tuple, filter_nan=filter_nan)
+        path = write_tmp(scene_da, outDir, "clipped")
+        scene_paths.append(path)
+    del da
+    return scene_paths 
+
 def compute_nan_check(da):
-    da_computed = da.copy().compute()
     nanbool = np.isnan(da_computed.sel(band=1))
     nanper = np.sum(nanbool) / da.size
     if nanper > .9:
         return None
     else:
         return da
-    
-@dask.delayed    
+       
 def clip_box_scene(da, bounds_tuple, filter_nan=False):
     """
     Will clip if bounds intersect, if not returns None.
@@ -81,18 +93,7 @@ def clip_box_scene(da, bounds_tuple, filter_nan=False):
         return None
     except rioxarray.exceptions.OneDimensionalRaster:
         print("The data array below is one dimensional for some reason, returning None")
-        print(da)
         return None
-    
-def clip_and_save(paths, bounds_tuple, filter_nan, outDir="/scratch/rave/tmp", scheduler="threads"):
-    scene_paths = []
-    for path in paths:
-        da = read_mask_ecostress_scene(path)
-        scene_da = clip_box_scene(da, bounds_tuple, filter_nan=filter_nan)
-        path = write_tmp(scene_da, outDir, "clipped")
-        scene_paths.append(path)
-    scene_paths = client.compute(scene_paths, scheduler='threads')
-    return [i for i in scene_paths if i]# gets rid of None that denotes too little scene overlap
 
 def resample_and_save(da_list, aoi_grid, outDir="/scratch/rave/tmp"):
     resampled_paths = []
@@ -100,7 +101,7 @@ def resample_and_save(da_list, aoi_grid, outDir="/scratch/rave/tmp"):
         x = resample_xarray_to_basis(da, aoi_grid, outDir)
         y = write_tmp(x, "resampled")
         resampled_paths.append(y)
-    return dask.compute(*resampled_paths)
+    return resampled_paths
     
 def check_all_nan(da_clipped):
     """
@@ -154,7 +155,6 @@ def gdf_to_dataarray(gdf, crs, resolution):
     rasterizeable_aoi['value'] = 1 # allow sus to make non empty dataset, required for resampling
     return make_geocube(vector_data=rasterizeable_aoi, resolution=resolution)['value']
 
-@dask.delayed
 def resample_xarray_to_basis(da, basis):
     """
     Resamples xarray dataarray to snap it to the aoi grid created from
@@ -164,7 +164,6 @@ def resample_xarray_to_basis(da, basis):
     reprojected_da = da.rio.reproject_match(basis, resampling=Resampling.nearest)
     return reprojected_da
 
-@dask.delayed    
 def write_tmp(da, outDir, path_id):
     if da is None:
         return None
@@ -172,4 +171,11 @@ def write_tmp(da, outDir, path_id):
         out_path = os.path.join(outDir, "".join(da.name.split(".")[:-1]) + f"-{path_id}.tif")
         da.attrs['path'] = out_path
         da.rio.to_raster(out_path)
+        del da
         return out_path
+    
+def batches_from(items, maxbaskets=25):
+    baskets = [[] for _ in range(maxbaskets)] # in Python 3 use range
+    for i, item in enumerate(items):
+        baskets[i % maxbaskets].append(item)
+    return list(filter(None, baskets))
