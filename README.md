@@ -1,7 +1,15 @@
 rhone-ecostress
 ==============================
 
-A short description of the project.
+Geospatial python dependencies are most reliably installed via conda forge in a fresh environment that uses Python 3.6 (not 3.7). installing from yaml files often doesn't work so set it up with
+
+```
+
+conda create -n geo
+conda activate geo
+conda install -c conda-forge dask rioxarray geocube xarray rasterio scikit-image scipy numpy pandas descartes mapclassify rtree ipykernel
+python setup.py develop
+```
 
 Project Organization
 ------------
