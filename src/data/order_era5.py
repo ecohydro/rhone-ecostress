@@ -12,12 +12,13 @@ c.retrieve(
             'surface_pressure','total_precipitation'
         ],
         'year':[
-            '2018','2019'
+            '2019'
         ],
         'month':[
+            '01','02','03',
             '04','05','06',
             '07','08','09',
-            '10'
+            '10','11','12'
         ],
         'day':[
             '01','02','03',
@@ -43,5 +44,5 @@ c.retrieve(
             '21:00','22:00','23:00'
         ]
     },
-    'era5-download.nc')
+    '/mnt/ecostress/rhone-ecostress-data/era5-download2.nc')
 
