@@ -64,7 +64,7 @@ def clip_and_save(paths, bounds_tuple, filter_nan, outDir):
     return scene_paths 
 
 def compute_nan_check(da):
-    nanbool = np.isnan(da_computed.sel(band=1))
+    nanbool = np.isnan(da.sel(band=1))
     nanper = np.sum(nanbool) / da.size
     if nanper > .9:
         return None
@@ -173,6 +173,12 @@ def write_tmp(da, outDir, path_id):
         da.rio.to_raster(out_path)
         del da
         return out_path
+    
+def write_netcdf(da, outDir):
+    out_path = os.path.join(outDir, da.name + ".nc")
+    da.attrs['path'] = out_path
+    da.to_netcdf(out_path)
+    return out_path
     
 def batches_from(items, maxbaskets=25):
     baskets = [[] for _ in range(maxbaskets)] # in Python 3 use range
