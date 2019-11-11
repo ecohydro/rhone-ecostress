@@ -179,3 +179,22 @@ def batches_from(items, maxbaskets=25):
     for i, item in enumerate(items):
         baskets[i % maxbaskets].append(item)
     return list(filter(None, baskets))
+
+def saturation_vapor_pressure(temperature):
+    """
+    Empirical equation from campbell and Norman p.41
+    """
+    a = .611 # kPa
+    b = 17.052
+    c = 240.97 # Celsius
+    return a*np.e**((b * temperature) / (temperature + c))
+
+def vapor_deficit(temperature, dew_point):
+    """
+    Temperatures must be in celsius
+    """
+    svp = saturation_vapor_pressure(temperature)
+    ambient_vapor_pressure = saturation_vapor_pressure(dew_point)
+    return svp-ambient_vapor_pressure
+
+
