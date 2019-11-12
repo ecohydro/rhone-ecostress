@@ -174,10 +174,9 @@ def write_tmp(da, outDir, path_id):
         del da
         return out_path
     
-def write_netcdf(da, outDir):
-    out_path = os.path.join(outDir, da.name + ".nc")
-    da.attrs['path'] = out_path
-    da.to_netcdf(out_path)
+def write_netcdf(da, outPath):
+    da.attrs['path'] = outPath
+    da.to_netcdf(outPath)
     return out_path
     
 def batches_from(items, maxbaskets=25):
