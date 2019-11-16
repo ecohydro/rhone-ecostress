@@ -9,7 +9,7 @@ from rasterio.enums import Resampling
 import dask
 import os
 
-def separate_extensions(folder_path, tif_pattern="*.tif"):
+def separate_by_pattern(folder_path, tif_pattern="*.tif"):
     """
     Tif pattern is its own arg because dif layers need to be seperated
     """
@@ -155,13 +155,13 @@ def gdf_to_dataarray(gdf, crs, resolution):
     rasterizeable_aoi['value'] = 1 # allow sus to make non empty dataset, required for resampling
     return make_geocube(vector_data=rasterizeable_aoi, resolution=resolution)['value']
 
-def resample_xarray_to_basis(da, basis):
+def resample_xarray_to_basis(da, basis, resampling_method):
     """
     Resamples xarray dataarray to snap it to the aoi grid created from
     gdf_todataset. Can be run on multiple ecostress rasters acquired from different orbits.
     returns the result with an updated path attribute.
     """
-    reprojected_da = da.rio.reproject_match(basis, resampling=Resampling.nearest)
+    reprojected_da = da.rio.reproject_match(basis, resampling=resampling_method)
     return reprojected_da
 
 def write_tmp(da, outDir, path_id):
