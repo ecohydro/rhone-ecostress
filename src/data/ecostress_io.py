@@ -9,7 +9,7 @@ from rasterio.enums import Resampling
 import dask
 import os
 
-def separate_extensions(folder_path, tif_pattern="*.tif"):
+def separate_by_pattern(folder_path, tif_pattern="*.tif"):
     """
     Tif pattern is its own arg because dif layers need to be seperated
     """
@@ -33,17 +33,17 @@ def read_ecostress_scene(tif_path):
     Tested on ET_daily layer
     """
     filename = tif_path.name
-    et = xa.open_rasterio(tif_path)
-    et = path_date_to_coord(filename, et)
-    return et
+    x = xa.open_rasterio(tif_path)
+    x = path_date_to_coord(filename, x)
+    return x
 
 def read_mask_ecostress_scene(tif_path):
     """
     Tested on ET_daily layer
     """
-    et = read_ecostress_scene(tif_path)
-    et = et.where(~et.isin(-1e+13)) # for daily Et layer, this is present and needs to be set to NaN. not sure if in all layers
-    return et
+    x = read_ecostress_scene(tif_path)
+    x.where((~x.isin(-1e+13))&(~x.isin(-999.))&(~x.isin(-99999.))) # no data values for quality and et product layers
+    return x
 
 def read_scenes(tif_paths, chunks={"band":1}):
     scenes = []
@@ -58,15 +58,20 @@ def clip_and_save(paths, bounds_tuple, filter_nan, outDir):
     for path in paths:
         da = read_mask_ecostress_scene(path)
         scene_da = clip_box_scene(da, bounds_tuple, filter_nan=filter_nan)
-        path = write_tmp(scene_da, outDir, "clipped")
-        scene_paths.append(path)
-    del da
+        if scene_da is not None:
+            path = write_tmp(scene_da, outDir, "clipped")
+            da.close()
+            del da
+            scene_da.close()
+            del scene_da
+            scene_paths.append(path)
     return scene_paths 
 
 def compute_nan_check(da):
     nanbool = np.isnan(da.sel(band=1))
     nanper = np.sum(nanbool) / da.size
     if nanper > .9:
+        da.close()
         return None
     else:
         return da
@@ -99,6 +104,8 @@ def resample_and_save(da_list, aoi_grid, outDir="/scratch/rave/tmp"):
     resampled_paths = []
     for da in da_list:
         x = resample_xarray_to_basis(da, aoi_grid, outDir)
+        da.close()
+        del da
         y = write_tmp(x, "resampled")
         resampled_paths.append(y)
     return resampled_paths
@@ -119,7 +126,7 @@ def check_all_nan(da_clipped):
 def match_da_lists(da_list1, da_list2):
     """
     Gets the dataarrays that have a corresponding datarray with the same date in another list.
-    Returns both as new lists.
+    Returns both as new lists. the basis list should go first (ETinst)
     """
     new_da_list1 = []
     new_da_list2 = []
@@ -155,13 +162,13 @@ def gdf_to_dataarray(gdf, crs, resolution):
     rasterizeable_aoi['value'] = 1 # allow sus to make non empty dataset, required for resampling
     return make_geocube(vector_data=rasterizeable_aoi, resolution=resolution)['value']
 
-def resample_xarray_to_basis(da, basis):
+def resample_xarray_to_basis(da, basis, resampling_method):
     """
     Resamples xarray dataarray to snap it to the aoi grid created from
     gdf_todataset. Can be run on multiple ecostress rasters acquired from different orbits.
     returns the result with an updated path attribute.
     """
-    reprojected_da = da.rio.reproject_match(basis, resampling=Resampling.nearest)
+    reprojected_da = da.rio.reproject_match(basis, resampling=resampling_method)
     return reprojected_da
 
 def write_tmp(da, outDir, path_id):
@@ -171,6 +178,7 @@ def write_tmp(da, outDir, path_id):
         out_path = os.path.join(outDir, "".join(da.name.split(".")[:-1]) + f"-{path_id}.tif")
         da.attrs['path'] = out_path
         da.rio.to_raster(out_path)
+        da.close()
         del da
         return out_path
     
