@@ -159,7 +159,7 @@ def gdf_to_dataarray(gdf, crs, resolution):
     """
     envelope = gdf.unary_union.envelope
     rasterizeable_aoi = gpd.GeoDataFrame(crs = crs, geometry=[envelope])
-    rasterizeable_aoi['value'] = 1 # allow sus to make non empty dataset, required for resampling
+    rasterizeable_aoi['value'] = 1 # allows us to make non empty dataset, required for resampling
     return make_geocube(vector_data=rasterizeable_aoi, resolution=resolution)['value']
 
 def resample_xarray_to_basis(da, basis, resampling_method):
