@@ -11,6 +11,9 @@ import dask
 from dask.distributed import Client
 import os
 
+client = Client()
+
+
 def filter_countries_for_france_aoi(root_path):
     with open(f"{root_path}/geo-countries/archive/countries.geojson", "rb") as f:
         all_countries_geojson = json.loads(f.read())
