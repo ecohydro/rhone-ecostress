@@ -8,10 +8,10 @@ import sys
 import geopandas as gpd
 import json
 import dask
-from dask.distributed import Client
+#from dask.distributed import Client
 import os
 
-client = Client()
+#client = Client()
 
 
 def filter_countries_for_france_aoi(root_path):
@@ -197,7 +197,7 @@ def read_and_concat(resampled_scene_paths, basis_da_list):
     ecostress_tseries = xa.concat(resampled_data_arrays, dim="date").sortby('date')
     return ecostress_tseries, basis_da_list
 
-def merge_duplicates(et_inst_tseries):
+def merge_duplicates(et_tseries_ds, et_inst_tseries):
     """
     Only valid for the daily product and after running
     etinst_tseries = etinst_tseries.rename({'date':'time'})
@@ -206,7 +206,7 @@ def merge_duplicates(et_inst_tseries):
 
     """
     
-    et_tseries_ds['time'] = et_tseries_ds['time'].values.astype('datetime64[D]')
+    et_tseries_ds['time'] = et_tseries_ds['time'].values.astype('datetime64[h]')
 
     duplicated_mask = pd.to_datetime(np.array(et_tseries_ds['time'])).duplicated(keep=False)
 
@@ -216,7 +216,7 @@ def merge_duplicates(et_inst_tseries):
 
     duplicate_xarr_list = []
     for duplicate in duplicate_dates:
-        date = pd.to_datetime(duplicate).strftime("%Y-%m-%d")
+        date = pd.to_datetime(duplicate).strftime("%Y-%m-%d H")
         arr = etinst_tseries.sel(time=date)
         arr = arr.where(arr != -1e+13) 
         duplicate_mean = arr.mean(dim="time")
