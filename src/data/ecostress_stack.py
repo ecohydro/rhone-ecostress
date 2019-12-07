@@ -197,7 +197,7 @@ def read_and_concat(resampled_scene_paths, basis_da_list):
     ecostress_tseries = xa.concat(resampled_data_arrays, dim="date").sortby('date')
     return ecostress_tseries, basis_da_list
 
-def merge_duplicates(et_tseries_ds, et_inst_tseries):
+def merge_duplicates(et_tseries_ds, etinst_tseries):
     """
     Only valid for the daily product and after running
     etinst_tseries = etinst_tseries.rename({'date':'time'})
@@ -206,34 +206,35 @@ def merge_duplicates(et_tseries_ds, et_inst_tseries):
 
     """
     
-    et_tseries_ds['time'] = et_tseries_ds['time'].values.astype('datetime64[h]')
+    et_tseries_ds['date'] = et_tseries_ds['date'].values.astype('datetime64[h]')
 
-    duplicated_mask = pd.to_datetime(np.array(et_tseries_ds['time'])).duplicated(keep=False)
+    duplicated_mask = pd.to_datetime(np.array(et_tseries_ds['date'])).duplicated(keep=False)
 
-    duplicate_dates = np.unique(et_tseries_ds.isel(time=duplicated_mask)['time'])
+    duplicate_dates = np.unique(et_tseries_ds.isel(date=duplicated_mask)['date'])
 
-    duplicated_da = et_tseries_ds.isel(time=duplicated_mask)
+    duplicated_da = et_tseries_ds.isel(date=duplicated_mask)
 
     duplicate_xarr_list = []
     for duplicate in duplicate_dates:
-        date = pd.to_datetime(duplicate).strftime("%Y-%m-%d H")
-        arr = etinst_tseries.sel(time=date)
+        date = pd.to_datetime(duplicate).strftime("%Y-%m-%d %H")
+        arr = etinst_tseries.sel(date=date)
         arr = arr.where(arr != -1e+13) 
-        duplicate_mean = arr.mean(dim="time")
-        duplicate_mean = duplicate_mean.assign_coords({'time': duplicate})
+        duplicate_mean = arr.mean(dim="date")
+        duplicate_mean = duplicate_mean.assign_coords({'date': duplicate})
         duplicate_xarr_list.append(duplicate_mean)
 
-    et_tseries_ds_no_dups = et_tseries_ds.isel(time=~duplicated_mask)# gettign rid of duplicates in original et xarr
+    et_tseries_ds_no_dups = et_tseries_ds.isel(date=~duplicated_mask)# gettign rid of duplicates in original et xarr
 
-    et_tseries_ds_dups = et_tseries_ds.isel(time=duplicated_mask)# gettign rid of duplicates in original et xarr
+    et_tseries_ds_dups = et_tseries_ds.isel(date=duplicated_mask)# gettign rid of duplicates in original et xarr
 
     et_tseries_ds_dups=et_tseries_ds_dups.where(et_tseries_ds_dups["ECO3ETPTJPL"] != -1e+13) 
 
     et_tseries_ds_no_dups=et_tseries_ds_no_dups.where(et_tseries_ds_no_dups["ECO3ETPTJPL"] != -1e+13) 
 
-    mean_duplicate_xarr = xa.concat(duplicate_xarr_list, dim="time")
+    mean_duplicate_xarr = xa.concat(duplicate_xarr_list, dim="date")
 
     mean_duplicate_dataset = mean_duplicate_xarr.to_dataset().sel(band=1)
 
-    merged_et_tseries_ds = xa.concat([et_tseries_ds_no_dups, mean_duplicate_dataset], dim="time").sortby("time")
+    merged_et_tseries_ds = xa.concat([et_tseries_ds_no_dups, mean_duplicate_dataset], dim="date").sortby("date")
+    return merged_et_tseries_ds
 

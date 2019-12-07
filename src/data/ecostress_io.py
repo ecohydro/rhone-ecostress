@@ -185,7 +185,7 @@ def write_tmp(da, outDir, path_id):
 def write_netcdf(da, outPath):
     da.attrs['path'] = outPath
     da.to_netcdf(outPath)
-    return out_path
+    return outPath
     
 def batches_from(items, maxbaskets=25):
     baskets = [[] for _ in range(maxbaskets)] # in Python 3 use range

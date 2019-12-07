@@ -83,3 +83,76 @@ def read_era_land_and_vpd(reanalysis_path):
         met_dataset = met_dataset.rio.set_crs(4326)
 
         return met_dataset['vpd']
+    
+def resample_if_not_resampled():
+    """
+    Untested, this was used in nb to make huge un subsetted vpd files but should be adapted so that ecostress time subsetting and clipping to rhone occurs first. Now we work from the clipped and subsetted vpd files.
+    """
+    raise NotImplemented
+    dest_path = root_path/"Hourly_VPD_10am-3pm_Paris_Time_Resampled.nc"
+    if dest_path.exists() is not True:
+        resampled_vpd_ds = esr.reproject_era_hourly(reanalysis_path, dest_path, etinst_tseries[0], hours_to_keep=[9, 10, 11, 12, 13, 14])
+        resampled_vpd_da = resampled_vpd_ds["Hourly_VPD_10am-3pm_Paris_Time_Resampled"]
+    else:
+        esr.read_era_land_and_vpd(dest_path)
+
+    resampled_vpd_da = resampled_vpd_da.transpose(...,"y") # puts y last
+    resampled_vpd_ds.time.values
+    
+def clip_subset_save_vpd():
+    """
+    needs args sorted out to be made modular
+    """
+    raise NotImplemented
+
+    july_clipped_et_t_path = root_path/"July-Hourly_VPD_clipped_et_times.nc"
+    august_clipped_et_t_path = root_path/"August-Hourly_VPD_clipped_et_times.nc"
+    sept_clipped_et_t_path = root_path/"September-Hourly_VPD_clipped_et_times.nc"
+
+    if july_clipped_et_t_path.exists() and august_clipped_et_t_path.exists() and sept_clipped_et_t_path.exists():
+        print("all vpd files clipped to rhone river bounding box and subsetted to ecostress overpass times")
+
+    else:
+
+        #aggregating inst to hourly to compare with era vpd?
+
+        def wm2_to_mm_per_hour(wm2):
+            lh_vap = 1/2454000 # at 20 C, we can adjust this based on era temp?
+            sec_hour = 60*60
+            return wm2*lh_vap*sec_hour # units of mm per hour
+
+        # june = root_path/"June-Hourly_VPD_10am-3pm_Paris_Time_Resampled.nc" #no june data for ecostress
+        july = root_path/"July-Hourly_VPD_10am-3pm_Paris_Time_Resampled.nc"
+        august = root_path/"August-Hourly_VPD_10am-3pm_Paris_Time_Resampled.nc"
+        sept = root_path/"September-Hourly_VPD_10am-3pm_Paris_Time_Resampled.nc"
+
+
+        july_da = xa.open_dataset(july)
+        august_da = xa.open_dataset(august)
+        sept_da = xa.open_dataset(sept)
+
+        def intersect_et_vpd_times(et, vpd):
+            """
+            Tested after removing/merging duplicates in et array
+            """
+            et_times = pd.to_datetime(np.array(et['date']))
+            et_time_mask = np.isin(vpd.time.values, et_times)
+            vpd_da_et_times = vpd.sel(time=et_time_mask)
+            return vpd_da_et_times
+
+
+        july_vpd_et_times = intersect_et_vpd_times(et_concat_ds,july_da)
+
+        august_vpd_et_times = intersect_et_vpd_times(et_concat_ds,august_da)
+
+        september_vpd_et_times = intersect_et_vpd_times(et_concat_ds,sept_da)
+
+        july_vpd_clipped_et_times = july_vpd_et_times.rio.clip(geodf.geometry.apply(mapping), geodf.crs, drop=True, invert=False)
+
+        august_vpd_clipped_et_times = august_vpd_et_times.rio.clip(geodf.geometry.apply(mapping), geodf.crs, drop=True, invert=False)
+
+        sept_vpd_clipped_et_times = september_vpd_et_times.rio.clip(geodf.geometry.apply(mapping), geodf.crs, drop=True, invert=False)
+
+        july_vpd_clipped_et_times.to_netcdf(july_clipped_et_t_path)
+        august_vpd_clipped_et_times.to_netcdf(august_clipped_et_t_path)
+        sept_vpd_clipped_et_times.to_netcdf(sept_clipped_et_t_path)
