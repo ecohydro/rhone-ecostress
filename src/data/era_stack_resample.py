@@ -4,6 +4,7 @@ import xarray as xa
 import rioxarray
 import numpy as np
 import src.data.ecostress_io as eio
+import pandas as pd
 
 def read_resampled_era(root_path, dataset_filename = "Daily_VPD_10am-3pm_Paris_Time_Resampled.nc"):
     dataset_name = dataset_filename.split(".")[0]
@@ -45,7 +46,7 @@ def resample_era_daily(reanalysis_path, root_path, project_source):
 
     return resampled_vpd_ds
 
-def reproject_era_hourly(reanalysis_path, dest_path, project_source, hours_to_keep=[5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]):
+def reproject_era_hourly_rhone(reanalysis_path, dest_path, project_source, hours_to_keep=[5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]):
     
     dataset_name = "Hourly_VPD_6am-8pm_utc_Resampled.nc"
     
@@ -73,16 +74,36 @@ def reproject_era_hourly(reanalysis_path, dest_path, project_source, hours_to_ke
     print(dataset_name, " done processing")
 
     return resampled_vpd_ds
+
+
+def reproject_era_hourly_san_pedro(reanalysis_path, dest_path, aoi_grid):
+    
+    dataset_name = "Hourly_VPD_6am-8pm_utc_Resampled.nc"
+    
+    print("starting calculation of vpd and resampling...")
+
+    vpd = read_era_land_and_vpd(reanalysis_path)
+    
+    vpd = vpd.rio.set_crs(4326)
+
+    print("I need this much RAM to reproject...", str(np.float32(1).itemsize * np.prod(vpd.shape) / 1e9))
+
+    resampled_vpd_da = vpd.rio.reproject_match(aoi_grid, resampling = Resampling.bilinear)
+
+    resampled_vpd_da.name = dataset_name
+
+    return resampled_vpd_da
     
 def read_era_land_and_vpd(reanalysis_path):
     
-        met_dataset = xa.open_dataset(reanalysis_path, chunks = {"time": 1, "latitude": 39, "longitude": 41})
+    met_dataset = xa.open_dataset(reanalysis_path, chunks = {"time": 1})
 
-        met_dataset['vpd'] = eio.vapor_deficit(met_dataset['t2m']-273.15,met_dataset['d2m']-273.15)
+    met_dataset['vpd'] = eio.vapor_deficit(met_dataset['t2m']-273.15,met_dataset['d2m']-273.15)\
+            .sel(time=slice("2019-03-01", "2019-06-30"))
 
-        met_dataset = met_dataset.rio.set_crs(4326)
+    met_dataset = met_dataset.rio.set_crs(4326)
 
-        return met_dataset['vpd']
+    return met_dataset['vpd']
     
 def resample_if_not_resampled():
     """
@@ -98,6 +119,15 @@ def resample_if_not_resampled():
 
     resampled_vpd_da = resampled_vpd_da.transpose(...,"y") # puts y last
     resampled_vpd_ds.time.values
+    
+def intersect_et_vpd_times(et, vpd):
+    """
+    Tested after removing/merging duplicates in et array
+    """
+    et_times = pd.to_datetime(np.array(et['date']))
+    et_time_mask = np.isin(vpd.time.values, et_times)
+    vpd_da_et_times = vpd.sel(time=et_time_mask)
+    return vpd_da_et_times
     
 def clip_subset_save_vpd():
     """
@@ -130,15 +160,6 @@ def clip_subset_save_vpd():
         july_da = xa.open_dataset(july)
         august_da = xa.open_dataset(august)
         sept_da = xa.open_dataset(sept)
-
-        def intersect_et_vpd_times(et, vpd):
-            """
-            Tested after removing/merging duplicates in et array
-            """
-            et_times = pd.to_datetime(np.array(et['date']))
-            et_time_mask = np.isin(vpd.time.values, et_times)
-            vpd_da_et_times = vpd.sel(time=et_time_mask)
-            return vpd_da_et_times
 
 
         july_vpd_et_times = intersect_et_vpd_times(et_concat_ds,july_da)

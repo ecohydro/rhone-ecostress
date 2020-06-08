@@ -8,10 +8,10 @@ import sys
 import geopandas as gpd
 import json
 import dask
-#from dask.distributed import Client
+from dask.distributed import Client
 import os
 
-#client = Client()
+client = Client()
 
 
 def filter_countries_for_france_aoi(root_path):
@@ -197,7 +197,7 @@ def read_and_concat(resampled_scene_paths, basis_da_list):
     ecostress_tseries = xa.concat(resampled_data_arrays, dim="date").sortby('date')
     return ecostress_tseries, basis_da_list
 
-def merge_duplicates(et_tseries_ds, etinst_tseries):
+def merge_duplicates(et_tseries_ds, etinst_tseries, var_name):
     """
     Only valid for the daily product and after running
     etinst_tseries = etinst_tseries.rename({'date':'time'})
@@ -227,9 +227,9 @@ def merge_duplicates(et_tseries_ds, etinst_tseries):
 
     et_tseries_ds_dups = et_tseries_ds.isel(date=duplicated_mask)# gettign rid of duplicates in original et xarr
 
-    et_tseries_ds_dups=et_tseries_ds_dups.where(et_tseries_ds_dups["ECO3ETPTJPL"] != -1e+13) 
+    et_tseries_ds_dups=et_tseries_ds_dups.where(et_tseries_ds_dups[var_name] != -1e+13) 
 
-    et_tseries_ds_no_dups=et_tseries_ds_no_dups.where(et_tseries_ds_no_dups["ECO3ETPTJPL"] != -1e+13) 
+    et_tseries_ds_no_dups=et_tseries_ds_no_dups.where(et_tseries_ds_no_dups[var_name] != -1e+13) 
 
     mean_duplicate_xarr = xa.concat(duplicate_xarr_list, dim="date")
 
