@@ -1,6 +1,9 @@
 rhone-ecostress
 ==============================
 
+This repo contains a python package `src` and a collection of notebooks for downloading and stacking ECOSTRESS L2,L3,L4 and ERA5 Land reanalysis data. Scripts were used to download these data over the rhone, resample all ecostress scenes to the same downsampled grid as ERA5 Land, and to organize these data products into a single xarray dataset with a date axis for calculating potential ET (from ERA and ECOSTRESS L3) and actual ET (from ECOSTRESS) where such data was available. The end goal was to subset these products to riparian river corridors and examine patterns of water use during times of high and low streamflow, but project was put on hold for a while due to other responsibilities and quality issues with the ECOSTRESS data.
+
+
 Geospatial python dependencies are most reliably installed via conda forge in a fresh environment that uses Python 3.6 (not 3.7). installing from yaml files often doesn't work so set it up with
 
 ```
