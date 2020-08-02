@@ -1,9 +1,0 @@
----
-title: "Raster test"
-output: html_notebook
----
-
-```{r}
-#Housekeeping
-```
-
