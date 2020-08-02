@@ -1,0 +1,36 @@
+---
+title: "Raster test"
+output: html_notebook
+---
+
+```{r}
+#Housekeeping
+library(tidyverse)
+library(raster)
+library(rgdal)
+library(here)
+```
+
+```{r}
+# Data carpentry intro to raster data in R tutorial
+
+test_85_info <- capture.output(GDALinfo(here("rasters/1985_08_02_et.tif")))
+
+test_85 <- raster(here("rasters/1985_08_02_et.tif"))
+
+summary(test_85)
+
+test_85_df <- as.data.frame(test_85, xy = TRUE)
+
+str(test_85_df)
+
+ggplot() +
+  geom_raster(data = test_85_df,
+              aes(x = x,
+                  y = y,
+                  fill = X1985_08_02_et)) +
+  scale_fill_viridis_c() +
+  coord_quickmap()
+
+```
+
