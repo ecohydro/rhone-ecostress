@@ -9,16 +9,20 @@ library(tidyverse)
 library(raster)
 library(rgdal)
 library(here)
+library(reshape)
+library(scales)
 ```
 
 ```{r}
 # Data carpentry intro to raster data in R tutorial
 
-test_85_info <- capture.output(GDALinfo(here("rasters/1985_08_02_et.tif")))
+test_85_info <- capture.output(GDALinfo(here("rasters/pdr/1985_08_02_et.tif")))
 
-test_85 <- raster(here("rasters/1985_08_02_et.tif"))
+test_85 <- raster(here("rasters/pdr/1985_08_02_et.tif"))
 
 summary(test_85)
+
+summary(test_85, maxsamp = ncell(test_85))
 
 test_85_df <- as.data.frame(test_85, xy = TRUE)
 
@@ -29,8 +33,44 @@ ggplot() +
               aes(x = x,
                   y = y,
                   fill = X1985_08_02_et)) +
-  scale_fill_viridis_c() +
+  scale_fill_viridis_c(
+    na.value = "deeppink" # Set display of NAs
+  ) +
   coord_quickmap()
 
+# Check coordinate reference system
+crs(test_85)
+
+test_85 <- setMinMax(test_85)
+
+minValue(test_85)
+
+maxValue(test_85)
+
+# How many bands?
+nlayers(test_85)
+
+# Make a histogram of raster data
+ggplot() +
+  geom_histogram(data = test_85_df,
+                 aes(X1985_08_02_et))
+
+```
+
+```{r}
+# Data Carpentry plot raster data in R tutorial
+```
+
+```{r}
+# Data Carpentry raster time series data in R tutorial
+raster_test_path <- here("rasters/pdr")
+
+raster_pdr_all <- list.files(path = raster_test_path,
+                         full.names = TRUE,
+                         all.files = TRUE)
+
+raster_pdr_all
+
+raster_pdr_stack <- stack(raster_pdr_all)
 ```
 
