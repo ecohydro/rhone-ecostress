@@ -11,14 +11,16 @@ library(rgdal)
 library(here)
 library(reshape)
 library(scales)
+library(R.utils)
+library(sp)
 ```
 
 ```{r}
 # Data carpentry intro to raster data in R tutorial
 
-test_85_info <- capture.output(GDALinfo(here("rasters/pdr/1985_08_02_et.tif")))
+test_85_info <- capture.output(GDALinfo(here("rasters/pdr_eeflux/1985_08_02_et.tif")))
 
-test_85 <- raster(here("rasters/pdr/1985_08_02_et.tif"))
+test_85 <- raster(here("rasters/pdr_eeflux/1985_08_02_et.tif"))
 
 summary(test_85)
 
@@ -59,11 +61,124 @@ ggplot() +
 
 ```{r}
 # Data Carpentry plot raster data in R tutorial
+
+test_85_df <- test_85_df %>% 
+  mutate(eeflux_et = cut(X1985_08_02_et, breaks = 3))
+
+ggplot() +
+  geom_bar(data = test_85_df, aes(eeflux_et))
+
+unique(test_85_df$eeflux_et)
+
+test_85_df %>% 
+  group_by(eeflux_et) %>% 
+  count()
+
+# Making your own custom breaks
+custom_bins <- c(0,3,6,11)
+
+test_85_df <- test_85_df %>% 
+  mutate(eeflux_et2 = cut(X1985_08_02_et, breaks = custom_bins))
+
+unique(test_85_df$eeflux_et2)
+
+ggplot() +
+  geom_bar(data = test_85_df, aes(eeflux_et2))
+
+test_85_df %>% 
+  group_by(eeflux_et2) %>% 
+  count()
+
+ggplot() +
+  geom_raster(data = test_85_df,
+              aes(x = x,
+                  y = y,
+                  fill = eeflux_et2)) +
+  coord_quickmap() +
+  theme(axis.title = element_blank()) +
+  scale_fill_manual(values = terrain.colors(4),
+                    name = "Evapotranspiration")
+
+terrain.colors(4) # Built-in terrain colors
+```
+
+Mtg w/ Ryan 8/7:
+
+Make a bounding box (could be general and make it generous so reproject will remain insite) or specific coordinates
+-bbox function can get bounding box
+-project polyline/shapefile into bbox
+
+*eeflux - precip = water use
+
+Look at correlations, look @ chirps lit on FTP server
+-dopar library (parallel processing R), splits for-loop (slow) into groups of tasks, distributed to processer cores
+-can raster stack the chirps data & do analysis that way, parallelized correlation on 2 time series
+
+```{r}
+# Data Carpentry reproject raster tutorial https://datacarpentry.org/r-raster-vector-geospatial/03-raster-reproject-in-r/index.html
+
+eeflux_1985 <- raster(here("rasters/pdr_eeflux/1985_07_08_et.tif"))
+
+chirps_1985 <- raster(gunzip(here("rasters/chirps/chirps-v2.0.1985.07.07.tif.gz")))
+
+eeflux_1985_df <- as.data.frame(eeflux_1985, xy = TRUE) %>% 
+  mutate(mmh2o = X1985_07_08_et)
+
+chirps_1985_df <- as.data.frame(chirps_1985, xy = TRUE) %>% 
+  mutate(mmh20 = chirps.v2.0.1985.07.07)
+
+eeflux_crs <- crs(eeflux_1985)
+
+eeflux_res <- res(eeflux_1985)
+
+crs(chirps_1985)
+
+proj4string(eeflux_1985)
+
+extent(eeflux_1985)
+
+extent(chirps_1985)
+
+chirps_1985_utm <- projectRaster(chirps_1985,
+                                 crs = crs(eeflux_1985),
+                                 extent = crs(eeflux_1985),
+                                 res = res(eeflux_1985))
+
+chirps_1985_utm <- projectRaster(from = chirps_1985,
+                                 to = eeflux_1985)
+
+chirps_1985_utm_df <- as.data.frame(chirps_1985_utm, xy = TRUE)
+
+crs(chirps_1985_utm)
+
+res(eeflux_1985)
+
+chirps_1985_utm
+
+res(chirps_1985_utm)
 ```
 
 ```{r}
+# Data Carpentry raster calculations in R tutorial (https://datacarpentry.org/r-raster-vector-geospatial/04-raster-calculations-in-r/index.html)
+
+water_use_df <- eeflux_1985_df - chirps_1985_df
+
+water_use_df <- as.data.frame(water_use)
+
+ggplot() +
+  geom_raster(data = water_use_df,
+              aes(x = x,
+                  y = y,
+                  fill = layer)) +
+  scale_fill_gradientn(name = "Water use",
+                       colors = terrain.colors(10)) +
+  coord_quickmap()
+```
+
+
+```{r}
 # Data Carpentry raster time series data in R tutorial
-raster_test_path <- here("rasters/pdr")
+raster_test_path <- here("rasters/eeflux_pdr")
 
 raster_pdr_all <- list.files(path = raster_test_path,
                          full.names = TRUE,

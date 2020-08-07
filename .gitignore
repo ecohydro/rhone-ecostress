@@ -2,3 +2,5 @@ $ cat .gitignore
 *.[tif]
 *~
 .Rproj.user
+rasters/
+*.[.Rhistory]
