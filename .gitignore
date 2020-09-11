@@ -4,3 +4,4 @@ $ cat .gitignore
 .Rproj.user
 rasters/
 *.[.Rhistory]
+tutorial_data/
