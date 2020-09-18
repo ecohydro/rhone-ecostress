@@ -1091,7 +1091,16 @@ ggplot() +
   geom_sf(data = pdr_forest) +
   coord_sf() 
   
+chirps <- list.files(path = here("rasters/chirps"), 
+                     pattern = ".gz", 
+                     full.names = TRUE, 
+                     recursive = TRUE)
 
+for(file in chirps){
+  gunzip(file)
+}
+
+list.dirs(path = "serdp/")
 
 ```
  
