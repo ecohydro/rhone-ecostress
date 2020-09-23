@@ -1,0 +1,373 @@
+---
+title: "Raster test"
+output: html_notebook
+---
+
+```{r}
+#Housekeeping
+library(tidyverse)
+library(raster)
+library(rgdal)
+library(here)
+library(reshape)
+library(scales)
+library(R.utils)
+library(sp)
+library(sf)
+library(bbox)
+library(parallel)
+
+```
+
+```{r}
+# Data carpentry intro to raster data in R tutorial
+
+test_85_info <- capture.output(GDALinfo(here("rasters/eeflux/PDR/2019_08_23_et.tif")))
+
+test_85 <- raster(here("rasters/eeflux/PDR/2019_08_23_et.tif"))
+
+summary(test_85)
+
+summary(test_85, maxsamp = ncell(test_85))
+
+test_85_df <- as.data.frame(test_85, xy = TRUE)
+
+str(test_85_df)
+
+ggplot() +
+  geom_raster(data = test_85_df,
+              aes(x = x,
+                  y = y,
+                  fill = X2019_08_23_et)) +
+  scale_fill_viridis_c(
+    na.value = "deeppink" # Set display of NAs
+  ) +
+  coord_quickmap()
+
+# Check coordinate reference system
+crs(test_85)
+
+test_85 <- setMinMax(test_85)
+
+minValue(test_85)
+
+maxValue(test_85)
+
+# How many bands?
+nlayers(test_85)
+
+# Make a histogram of raster data
+ggplot() +
+  geom_histogram(data = test_85_df,
+                 aes(X2019_08_23_et))
+
+```
+
+```{r}
+# Data Carpentry plot raster data in R tutorial
+
+test_85_df <- test_85_df %>% 
+  mutate(eeflux_et = cut(X2019_08_23_et, breaks = 3))
+
+ggplot() +
+  geom_bar(data = test_85_df, aes(eeflux_et))
+
+unique(test_85_df$eeflux_et)
+
+test_85_df %>% 
+  group_by(eeflux_et) %>% 
+  count()
+
+# Making your own custom breaks
+custom_bins <- c(0,3,6,11)
+
+test_85_df <- test_85_df %>% 
+  mutate(eeflux_et2 = cut(X2019_08_23_et, breaks = custom_bins))
+
+unique(test_85_df$eeflux_et2)
+
+ggplot() +
+  geom_bar(data = test_85_df, aes(eeflux_et2))
+
+test_85_df %>% 
+  group_by(eeflux_et2) %>% 
+  count()
+
+ggplot() +
+  geom_raster(data = test_85_df,
+              aes(x = x,
+                  y = y,
+                  fill = eeflux_et2)) +
+  coord_quickmap() +
+  theme(axis.title = element_blank()) +
+  scale_fill_manual(values = terrain.colors(4),
+                    name = "Evapotranspiration")
+
+terrain.colors(4) # Built-in terrain colors
+
+# Try w/ chirps data
+chirps_test <- raster(x = here("rasters/chirps/1990/chirps-v2.0.1990.07.16.tif"))
+
+chirps_test_df <- as.data.frame(chirps_test, xy = TRUE)
+
+chirps_test_tbl <- as_tibble(chirps_test_df) %>% 
+  filter(chirps.v2.0.1990.07.16 != "-9999") %>% 
+  filter(x >= 4) %>% 
+  filter(x <= 7) %>% 
+  filter(y >= 43) %>% 
+  filter(y <= 47)
+
+ggplot() +
+  geom_raster(data = chirps_test_tbl,
+              aes(fill = chirps.v2.0.1990.07.16,
+                  x = x,
+                  y = y)) +
+  coord_quickmap() +
+  theme(axis.title = element_blank())
+
+
+```
+
+Mtg w/ Ryan 8/7:
+
+Make a bounding box (could be general and make it generous so reproject will remain insite) or specific coordinates
+-bbox function can get bounding box
+-project polyline/shapefile into bbox
+
+*eeflux - precip = water use
+
+Look at correlations, look @ chirps lit on FTP server
+-dopar library (parallel processing R), splits for-loop (slow) into groups of tasks, distributed to processer cores
+-can raster stack the chirps data & do analysis that way, parallelized correlation on 2 time series
+
+```{r}
+# Data Carpentry reproject raster tutorial - Rhone data https://datacarpentry.org/r-raster-vector-geospatial/03-raster-reproject-in-r/index.html
+
+eeflux_1985 <- raster(here("rasters/pdr_eeflux/1985_07_08_et.tif"))
+
+chirps_1985 <- raster(x = here("rasters/chirps/chirps-v2.0.2017.04.16.tif"))
+                      #xmn = 4,
+                      #xmx = 6,
+                      #ymn = 43,
+                      #ymx = 47) # Lat/long bounding box for all 3 of Bryn's sites - doesn't change anything
+
+chirps_1985_utm <- projectRaster(from = chirps_1985, # This seems to work to snap chirps to eeflux
+                                 to = eeflux_1985,
+                                 alignOnly = TRUE)
+# Specifying individual attributes from eeflux - not necessary?
+                                #crs = crs(eeflux_1985),
+                                #extent = extent(eeflux_1985)
+                                #res = res(eeflux_1985))
+
+eeflux_1985_df <- as.data.frame(eeflux_1985, xy = TRUE) %>% 
+  mutate(mmh2o = X1985_07_08_et)
+
+chirps_1985_df <- as.data.frame(chirps_1985_utm, xy = TRUE) %>% 
+  mutate(mmh2o = chirps.v2.0.2017.04.16)
+
+# Checking coordinates, extent
+crs(eeflux_1985)
+
+res(eeflux_1985)
+
+crs(chirps_1985_utm)
+
+res(chirps_1985_utm)
+
+# Another command to get crs/projection: proj4string(eeflux_1985)
+
+extent(eeflux_1985)
+
+extent(chirps_1985_utm)
+
+# Checking to see if reprojection worked:
+ggplot() +
+  geom_raster(data = chirps_1985_df,
+              aes(x = x,
+                  y = y,
+                  fill = mmh2o)) +
+  coord_quickmap() #+
+  theme(axis.title = element_blank()) +
+  scale_fill_manual(values = terrain.colors(4),
+                    name = "Precipitation")
+```
+
+
+```{r}
+# Data Carpentry raster calculations in R tutorial (https://datacarpentry.org/r-raster-vector-geospatial/04-raster-calculations-in-r/index.html)
+
+water_use_df <- eeflux_1985_df - chirps_1985_df
+
+water_use_df <- as.data.frame(water_use)
+
+ggplot() +
+  geom_raster(data = water_use_df,
+              aes(x = x,
+                  y = y,
+                  fill = layer)) +
+  scale_fill_gradientn(name = "Water use",
+                       colors = terrain.colors(10)) +
+  coord_quickmap()
+```
+
+
+```{r}
+# Data Carpentry raster time series data in R tutorial - Rhone data
+raster_test_path <- here("rasters/chirps/1985")
+
+raster_pdr_all <- list.files(path = raster_test_path,
+                         full.names = TRUE,
+                         pattern = ".tif$")
+
+raster_pdr_all
+
+stack <- stack(raster_pdr_all)
+
+crs(stack)
+
+stack_df <- as.data.frame(stack, xy = true)
+```
+
+```{r}
+# Initial bbox approach + notes from Casey
+# Trying to create a bounding box according to this approach: https://twitter.com/TimSalabim3/status/1063099774977667072?s=20
+# (bbox function is no longer supported)
+# Don't think this works w/ raster data
+
+tif <- raster(here("rasters/pdr_eeflux/1985_07_08_et.tif"))
+chirps_crs <- crs(chirps)
+#make extent here - chirps in wgs84?
+# keep in mind reprojection method - nearest neighbor?
+raster::extent(xmin,
+               xmax,
+               ymin)
+
+# None of this is necessary \/
+new_bb = c(4, 6, 43, 47)
+names(new_bb) = c("xmin", "ymin", "xmax", "ymax")
+attr(new_bb, "class") = "bbox"
+
+attr(st_geometry(tif),
+  "bbox") = new_bb
+
+st_bbox(tif)
+
+```
+
+```{r}
+# Getting bounding box from PDR (eeflux tifs from multiple download sessions had same bounding box)
+
+# Entire river is in UTM zone 31 - reprojecting eeflux from utm to lambert (rhone valleys) makes them line up
+
+st_bbox(test_85)
+
+bbox3 <- st_as_sfc(st_bbox(test_85))
+
+sf::st_write(bbox3, here("rasters/pdr_eeflux/pdr_bbox/bbox_pdr.shp"), driver = "ESRI Shapefile")
+
+pdr_forest <- st_read(here("rasters/pdr_eeflux/pdr_bbox/bd_foret_pdr.shp"))
+
+rhone_crs <- as.character(crs(pdr_forest))
+
+test_85 <- projectRaster(from = test_85,insta
+                         crs = rhone_crs)
+
+test_85_df <- as.data.frame(test_85, xy = TRUE)
+
+chirps_test_lambert <- projectRaster(from = chirps_test, crs = rhone_crs, res = res(test_85))
+
+chirps_test_df <- as.data.frame(chirps_test_lambert, xy = TRUE)
+
+# This is producing no values here? Works above?
+chirps_test_tbl <- as_tibble(chirps_test_df) %>% 
+  filter(chirps.v2.0.1990.07.16 != "-9999") %>% 
+  filter(x >= 4) %>% 
+  filter(x <= 7) %>% 
+  filter(y >= 43) %>% 
+  filter(y <= 47)
+
+ggplot() + 
+  geom_raster(data = chirps_test_df,
+              aes(fill = chirps.v2.0.1990.07.16,
+                  x = x,
+                  y = y)) +
+  geom_raster(data = test_85_df,
+              aes(x = x,
+                  y = y,
+                  fill = X2019_08_23_et)) +
+  geom_sf(data = pdr_forest) +
+  coord_sf() 
+```
+
+
+``` {r}
+# Unzipping .gz files
+  
+chirps <- list.files(path = here("rasters/chirps"), 
+                     pattern = ".gz", 
+                     full.names = TRUE, 
+                     recursive = TRUE)
+
+for(file in chirps){
+  gunzip(file)
+}
+
+list.dirs(path = "serdp/")
+
+```
+ 
+```{r}
+# Chirps calculations - clipping/reprojecting
+
+# From Ryan phone call - find Lambert conical crs, try to clip/reproject/re-resolution brick of chirps
+
+chirps_1981 <- list.files(path = here("rasters/chirps/1981"), 
+                     pattern = ".tif", 
+                     full.names = TRUE)
+
+
+rhone_bb <- matrix(c(4,43,6,47), nrow = 2)
+rhone_area <- raster::extent(rhone_bb)
+
+NAvalue(x) <- -9999
+
+chirps_clip <- function(x) {x <- raster(x)
+  NAvalue(x) <- -9999
+  names(x) <- "mmh2o"
+  crop(x, y = rhone_area, filename = file.path(x), overwrite = TRUE)
+} 
+
+chirps_rmna_save <- function(x) {
+  writeRaster(x, overwrite = TRUE)
+}
+  
+  projectRaster()
+
+lapply_test <- chirps_clip(here("/rasters/chirps/1981/chirps-v2.0.1981.01.02.tif"))
+
+lapply_test_df <- as.data.frame(lapply_test, xy = TRUE)
+
+# Test works
+ggplot() +
+  geom_raster(data = lapply_test_df,
+              aes(x = x,
+                  y = y,
+                  fill = mmh2o)) +
+  coord_quickmap()
+
+raster(here("rasters/chirps/1981/chirps-v2.0.1981.01.01.tif"))
+
+parallel::mclapply(x = chirps_1981,
+                   )
+
+chirps_test_stack <- stack(chirps_1981)
+
+# think you can brick a list w/o making stack first (stack takes way less time - can do transformations on a stack?)
+
+chirps_test_brick <- brick(chirps_test_stack) # Hung on anvil for almost 2hrs
+
+parallel::mclapply()
+
+```
+ 
+ 
