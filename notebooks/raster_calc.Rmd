@@ -22,9 +22,9 @@ library(parallel)
 ```{r}
 # Data carpentry intro to raster data in R tutorial
 
-test_85_info <- capture.output(GDALinfo(here("rasters/eeflux/PDR/2019_08_23_et.tif")))
+test_85_info <- capture.output(GDALinfo(here("rasters/pdr_eeflux/2019_08_23_et.tif")))
 
-test_85 <- raster(here("rasters/eeflux/PDR/2019_08_23_et.tif"))
+test_85 <- raster(here("rasters/pdr_eeflux/2019_08_23_et.tif"))
 
 summary(test_85)
 
@@ -168,7 +168,7 @@ chirps_1985_df <- as.data.frame(chirps_1985_utm, xy = TRUE) %>%
 # Checking coordinates, extent
 crs(eeflux_1985)
 
-res(eeflux_1985)
+rhone_res <- res(eeflux_1985)
 
 crs(chirps_1985_utm)
 
@@ -329,12 +329,17 @@ chirps_1981 <- list.files(path = here("rasters/chirps/1981"),
 rhone_bb <- matrix(c(4,43,6,47), nrow = 2)
 rhone_area <- raster::extent(rhone_bb)
 
-NAvalue(x) <- -9999
+NAvalue(x) <- -9999.0
 
 chirps_clip <- function(x) {x <- raster(x)
-  NAvalue(x) <- -9999
+  x <- crop(x, y = rhone_area)
+  values(x)[values(x) < 0] <- NA
   names(x) <- "mmh2o"
-  crop(x, y = rhone_area, filename = file.path(x), overwrite = TRUE)
+  x <- projectRaster(from = x,
+                # res = rhone_res, - want to do this after finding averages?
+                crs = rhone_crs,
+                overwrite = TRUE)
+  x
 } 
 
 chirps_rmna_save <- function(x) {
@@ -343,9 +348,14 @@ chirps_rmna_save <- function(x) {
   
   projectRaster()
 
-lapply_test <- chirps_clip(here("/rasters/chirps/1981/chirps-v2.0.1981.01.02.tif"))
+lapply_test <- chirps_clip(here("rasters/chirps/chirps-v2.0.1990.07.16.tif"))
+  #chirps_clip(here("/rasters/chirps/1981/chirps-v2.0.1981.01.02.tif"))
 
 lapply_test_df <- as.data.frame(lapply_test, xy = TRUE)
+
+res(lapply_test)
+
+crs(lapply_test)
 
 # Test works
 ggplot() +
