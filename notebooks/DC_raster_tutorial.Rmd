@@ -18,7 +18,8 @@ library(sf)
 ```
 
 ```{r}
-# Data Carpentry reproject raster data in R tutorial - DC data
+# Intro to geospatial raster/vector data w/ R tutorial - https://datacarpentry.org/r-raster-vector-geospatial/
+# Data Carpentry intro/plot/reproject raster data in R tutorial - DC data
 
 DTM_HARV <- raster(here("tutorial_data/NEON-DS-Airborne-Remote-Sensing/HARV/DTM/HARV_dtmCrop.tif"))
 
