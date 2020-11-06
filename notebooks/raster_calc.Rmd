@@ -16,6 +16,7 @@ library(sp)
 library(sf)
 library(parallel)
 library(lubridate)
+library(lfstat)
 ```
 
 Master notebook for raster transformations, Rhone project. See raster_test.rmd for applying Data Carpentry workshop to Rhone data, see DC_raster_tutorial.rmd for finished workshop modules
@@ -140,9 +141,10 @@ bbox3 <- st_as_sfc(st_bbox(test_85))
 
 sf::st_write(bbox3, here("rasters/pdr_eeflux/pdr_bbox/bbox_pdr.shp"), driver = "ESRI Shapefile")
 
-pdr_forest <- st_read(here("rasters/pdr_eeflux/pdr_bbox/bd_foret_pdr.shp"))
+pdr.forest <- st_read(here("rasters/bbox/pdr_bbox/bd_foret_pdr.shp"))
 
-rhone_crs <- as.character(crs(pdr_forest))
+# Lambert conformal conic projection w/ 2 standard parallels @ 49degN/44degN
+rhone.crs <- as.character(crs(pdr.forest))
 
 test_85 <- projectRaster(from = test_85,
                          crs = rhone_crs)
@@ -199,22 +201,13 @@ chirps_1981 <- list.files(path = here("rasters/chirps/1981"),
                      pattern = ".tif", 
                      full.names = TRUE)
 
-
-rhone_bb <- matrix(c(4,43,6,47), nrow = 2)
-rhone_area <- raster::extent(rhone_bb)
-
 NAvalue(x) <- -9999.0
 
-chirps_clip <- function(x) {x <- raster(x)
-  x <- crop(x, y = rhone_area)
-  values(x)[values(x) < 0] <- NA
-  names(x) <- "mmh2o"
+
   #z <- projectRaster(from = x,
                 # res = rhone_res, - want to do this after finding averages?
                 # crs = rhone_crs,
                 #overwrite = TRUE)
-  return(x)
-} 
 
 chirps_rmna_save <- function(x) {
   writeRaster(x, overwrite = TRUE)
@@ -257,6 +250,73 @@ parallel::mclapply()
 ```
  
 ```{r}
+# Final chirps clipping function (w/ help from Casey O'Hara)
+rhone.bb <- matrix(c(4,43,6,47), nrow = 2)
+rhone.area <- raster::extent(rhone.bb)
+
+# Making same bbox for geojson to download new ET data
+x_coord <- c(4, 6)
+y_coord <- c(43, 47)
+xym <- cbind(x_coord, y_coord)
+xym
+
+p = sp::Polygon(xym)
+ps = Polygons(list(p),1)
+sps = SpatialPolygons(list(ps))
+plot(sps)
+
+data = data.frame(f=99.9)
+spdf = SpatialPolygonsDataFrame(sps,data)
+rhone.area2 <- spdf
+summary(spdf)
+extent(spdf)
+
+writeOGR(rhone.area2, here("rasters/bbox/rhonebb.GeoJSON"),
+         layer = 'rhone.area2',
+         driver = "GeoJSON", 
+         overwrite = TRUE
+      )
+
+
+chirps.clip.SA <- 
+  # This function clips global chirps rasters to the Rhone watershed study area
+  function(x) {
+    
+  outfile.base <- str_replace(basename(x), '.tif', '-clipped.tif')
+  outfile <- here('rasters/chirps-clipped', outfile.base)
+  
+  if(file.exists(outfile)) {
+    message('File already exists! Skipping..', outfile)
+  }
+  else{message('Processing file: ', outfile)
+    rast <- raster(x) %>% 
+      crop(x, y = rhone.area, overwrite = TRUE) %>% 
+      setNames('mmh2o')
+    
+    values(rast)[values(rast) < 0] <- NA
+    
+    rast.out <- raster::projectRaster(from = rast,
+                              crs = rhone.crs,
+                              method = 'ngb')
+    
+    writeRaster(rast.out, 
+                filename = outfile,
+                overwrite = TRUE)
+  }
+  return(NULL)
+  }
+
+chirps <- list.files(path = here("rasters/chirps"), 
+                     pattern = ".tif", 
+                     full.names = TRUE, 
+                     recursive = TRUE)
+ 
+mclapply(chirps, chirps.clip.SA)
+```
+ 
+ 
+ 
+```{r}
 # Writing a function to rename eeflux
 
 # Make folder for each site, dump .zip folders, create list of files
@@ -269,4 +329,95 @@ auto_eeflux <- function(x) {for .zip in (x)
 
 ```
  
- 
+```{r}
+# Function to stack chirps by year, crop to pdr valleys
+
+pdr.valley.shp <- sf::st_read(here("rasters/bbox/pdr_bbox/bd_foret_pdr.shp")) #%>% 
+  st_transform(crs = crs(eeflux_temp))
+# Use sf package, readOGR gives weird file structure, sf should work as crop()
+# Convert shp from LCC to UTM (eeflux) - don't have to reproject chirps (but clipped rasters are already in lcc!)
+
+eeflux_temp <- raster(here('rasters/eeflux/PDR/2020_08_25_et.tif')) %>% 
+  projectRaster(crs = crs(pdr.valley.shp),
+                extent = extent(pdr.valley.shp)) %>% 
+  raster::mask(mask = pdr.valley.shp)
+  
+chirps.clipped <- list.files(here('rasters/chirps-clipped'),
+                             full.names = TRUE)
+
+crs(raster(here('rasters/chirps-clipped/chirps-v2.0.2020.06.30-clipped.tif')))
+
+# This command returns raster_list df w/ file path + water year
+raster_df <- data.frame(f = chirps.clipped) %>% # Take chirps.clipped, give name f
+  mutate(wateryear = lfstat::water_year(x =
+    lubridate::ymd(
+      str_extract(chirps.clipped, pattern = "[0-9]{4}\\.[0-9]{2}\\.[0-9]{2}")),
+    origin = 'usgs'))
+
+class(raster_df) # Want to feed raster a character vector (filenames)
+
+wy1981 <- raster_df %>% 
+  filter(wateryear == 1981) %>% 
+  dplyr::select(-wateryear) %>% 
+  .$f #. says take object piped in and give column f
+  
+x = wy1981$f
+
+water_years <- c(1985:2020)
+
+crop_stack <- function(y){
+  
+  for (y in water_years){
+    
+    message('Year is now ', y)
+  
+    wy <- raster_df %>% 
+      filter(wateryear == y) %>%
+      dplyr::select(-wateryear) %>% 
+      .$f 
+    
+  suppressWarnings({ # This says run wystack, and don't give crs warnings (will run faster)
+      wystack <- stack(wy)
+    })
+  
+    wystack_2 <- projectRaster(wystack, to = eeflux_temp) # converted eeflux to lcc proj above
+    
+    wystack_3 <- mask(wystack_2, mask = pdr.valley.shp)
+    
+    wy_total <- wystack_3 %>% calc(fun = sum, na.rm = TRUE)
+    
+    writeRaster(wy_total,
+                filename = here('rasters/chirps-wy/chirps-pdr', 
+                                paste("pdr_chirps_", y, ".tif", sep = '')),
+                overwrite = TRUE)
+  
+  }
+return(plot(wystack_2))
+}
+    
+read_test <- raster(here('rasters/chirps-wy/chirps-pdr/pdr_chirps_1981.tif'))
+
+extent_test <- projectRaster(raster(here('rasters/chirps-clipped/chirps-v2.0.2020.06.30-clipped.tif')),
+                             to = eeflux_temp)
+
+plot(wy_total)
+
+    #outfile <- here('rasters/chirps-wy/chirps-pdr', 'chirps-pdr-wy'y)
+  ##outfile.base <- chr(y)
+  ##outfile <- here('rasters/chirps-wy/chirps-pdr',outfile.base)
+
+
+stack_test <- raster::stack(wy1981)
+res(stack_test) <- 30
+crop(wy-stack, y = pdr.valley.shp, overwrite = TRUE)
+  #wy-total <- wy-stack %>% 
+    #calc(year, fun = sum, na.rm = TRUE)
+
+mclapply(water_years,
+         crop_stack,
+         mc.silent = FALSE)
+
+crop_stack(1981)
+
+```
+
