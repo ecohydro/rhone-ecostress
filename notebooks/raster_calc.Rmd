@@ -363,7 +363,7 @@ wy1981 <- raster_df %>%
   
 x = wy1981$f
 
-water_years <- c(1985:2020)
+water_years <- c(2016:2020)
 
 crop_stack <- function(y){
   
@@ -419,5 +419,43 @@ mclapply(water_years,
 
 crop_stack(1981)
 
+```
+
+```{r}
+plot(raster(here("rasters/chirps-wy/chirps-pdr/pdr_chirps_2019.tif")))
+
+# Raster math
+
+eeflux_pdr_2019 <- stack(
+  list.files(
+  here("rasters/eeflux/PDR"),
+  pattern = "2019.",
+  full.names = TRUE)) 
+  
+eeflux_pdr_2019 <- projectRaster(from = eeflux_pdr_2019,
+              to = chirps_pdr_2019) %>% 
+  calc(fun = sum, na.rm = TRUE)
+
+chirps_pdr_2019 <- raster(here("rasters/chirps-wy/chirps-pdr/pdr_chirps_2019.tif"))
+
+crs(eeflux_pdr_2019)
+
+crs(chirps_pdr_2019)
+
+correlate = (eeflux_pdr_2019
+             #*(365/8)) 
+             - chirps_pdr_2019
+
+correlate_masked <- mask(correlate, mask = pdr.valley.shp)
+
+correlate_df <- as.data.frame(correlate,
+                              xy = TRUE)
+
+ggplot() +
+  geom_raster(data = correlate_df,
+              aes(x = x,
+                  y = y,
+                  fill = layer)) +
+    coord_quickmap()
 ```
 
