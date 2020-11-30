@@ -444,7 +444,7 @@ crs(chirps_pdr_2019)
 
 correlate = (eeflux_pdr_2019
              #*(365/8)) 
-             - chirps_pdr_2019
+             - chirps_pdr_2019)
 
 correlate_masked <- mask(correlate, mask = pdr.valley.shp)
 
@@ -457,5 +457,38 @@ ggplot() +
                   y = y,
                   fill = layer)) +
     coord_quickmap()
+```
+
+```{r}
+#Adding centerline to raster
+
+centerline <- sf::read_sf(here("rasters/Rhone_centerline/Rhone_centerline.shp")) %>% 
+  st_sf() %>% 
+  st_transform(crs = crs(correlate)) %>% 
+  as_Spatial() %>% 
+  as('SpatialLines')
+
+#not working
+centerline_proj <- as.character(
+  sf_project(from = centerline,
+             to = correlate))
+
+#not working
+raster::distance(x = correlate,
+                 y = centerline)
+
+#Approach from https://gis.stackexchange.com/questions/226554/create-raster-in-r-distance-to-line-feature
+require(rgeos)
+dd = gDistance(centerline, as(correlate,"SpatialPoints"), byid=TRUE)
+# This creates a matrix with a column for each feature in Sl. To get the nearest distance to any feature, apply min over rows:
+
+correlate[] = apply(dd,1,min)
+plot(correlate)
+
+dist_masked <- mask(correlate, mask = pdr.valley.shp)
+
+# More raster math
+dist_corr = dist_masked / correlate_masked
+plot(dist_corr)
 ```
 
