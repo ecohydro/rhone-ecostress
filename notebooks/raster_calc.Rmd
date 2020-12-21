@@ -316,7 +316,7 @@ mclapply(chirps, chirps.clip.SA)
  
  
  
-```{r}
+```{r}crs(e)
 # Writing a function to rename eeflux
 
 # Make folder for each site, dump .zip folders, create list of files
@@ -490,5 +490,36 @@ dist_masked <- mask(correlate, mask = pdr.valley.shp)
 # More raster math
 dist_corr = dist_masked / correlate_masked
 plot(dist_corr)
+```
+
+```{r}
+# Growing season calculations
+pdr.valley.utm <- st_transform(pdr.valley.shp, 32610)
+
+eeflux_75_rasters <- list.files(path = here("ee_growing_season_integrated"), 
+                     pattern = ".tif", 
+                     full.names = TRUE)
+
+eeflux_75_stack <- stack(eeflux_75_rasters) %>% 
+  projectRaster(to = eeflux_temp)
+
+eeflux_75_mask <- mask(eeflux_75_stack, mask = pdr.valley.shp)
+
+chirps_75_rasters <- list.files(path = here("ee_season_precip_data"), 
+                     pattern = ".tif", 
+                     full.names = TRUE)
+
+chirps_75_stack <- stack(chirps_75_rasters) %>% 
+  projectRaster(to = eeflux_temp)
+
+chirps_75_mask <- mask(chirps_75_stack, mask = pdr.valley.shp)
+
+cor(values(eeflux_75_mask),
+    values(chirps_75_mask),
+    method = 'pearson',
+    use = 'pairwise.complete.obs')
+
+lm_75 <- lm()
+
 ```
 
