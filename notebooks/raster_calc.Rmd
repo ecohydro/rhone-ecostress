@@ -514,12 +514,16 @@ chirps_75_stack <- stack(chirps_75_rasters) %>%
 
 chirps_75_mask <- mask(chirps_75_stack, mask = pdr.valley.shp)
 
-cor(values(eeflux_75_mask),
-    values(chirps_75_mask),
-    method = 'pearson',
-    use = 'pairwise.complete.obs')
+#Pixel-wise regression, from: https://matinbrandt.wordpress.com/2014/05/26/pixel-wise-regression-between-two-raster-time-series/
+s <- stack(eeflux_75_mask, chirps_75_mask)
 
-lm_75 <- lm()
+fun=function(x) { if (is.na(x[1])){ NA } else { lm(x[1:35] ~ x[36:70])$coefficients[2] }}
+slope <- calc(s, fun)
 
+fun=function(x) { if (is.na(x[1])){ NA } else { lm(x[1:35] ~ x[36:70])$coefficients[1] }}
+intercept <- calc(s, fun)
+
+fun=function(x) { if (is.na(x[1])){ NA } else { m <- lm(x[1:35] ~ x[36:70]);summary(m)$r.squared }}
+r.squared <- calc(s, fun)
 ```
 
