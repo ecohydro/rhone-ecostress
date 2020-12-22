@@ -493,7 +493,7 @@ plot(dist_corr)
 ```
 
 ```{r}
-# Growing season calculations
+# Growing season calculations - https://statnmap.com/2018-01-27-spatial-correlation-between-rasters/
 pdr.valley.utm <- st_transform(pdr.valley.shp, 32610)
 
 eeflux_75_rasters <- list.files(path = here("ee_growing_season_integrated"), 
