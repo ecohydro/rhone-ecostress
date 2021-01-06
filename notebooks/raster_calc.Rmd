@@ -519,11 +519,82 @@ s <- stack(eeflux_75_mask, chirps_75_mask)
 
 fun=function(x) { if (is.na(x[1])){ NA } else { lm(x[1:35] ~ x[36:70])$coefficients[2] }}
 slope <- calc(s, fun)
+writeRaster(x = slope,
+              filename = here("raster_download/slope_125_275_pdr.tif"),
+              format = 'GTiff',
+            overwrite = TRUE)
 
 fun=function(x) { if (is.na(x[1])){ NA } else { lm(x[1:35] ~ x[36:70])$coefficients[1] }}
 intercept <- calc(s, fun)
 
 fun=function(x) { if (is.na(x[1])){ NA } else { m <- lm(x[1:35] ~ x[36:70]);summary(m)$r.squared }}
 r.squared <- calc(s, fun)
+writeRaster(x = r.squared,
+              filename = here("raster_download/r_squared_125_275_pdr.tif"),
+              format = 'GTiff',
+            overwrite = TRUE)
+
+# Integrating p-values into existing workflow using: https://stackoverflow.com/questions/5587676/pull-out-p-values-and-r-squared-from-a-linear-regression
+fun=function(x) { if (is.na(x[1])){ NA } else { m <- lm(x[1:35] ~ x[36:70]);
+f <- summary(m)$fstatistic
+	p <- pf(f[1],f[2],f[3],lower.tail=F)
+	attributes(p) <- NULL
+	return(p) }}
+p.val <- calc(s, fun)
+
+#Try a seasonal regression - April/May/June
+chirps_75_spring <- list.files(path = here("4q_seasonal_data"), 
+                     pattern = "amj.tif", 
+                     full.names = TRUE) %>% 
+  stack() %>% 
+  projectRaster(to = eeflux_temp) %>% 
+  mask(mask = pdr.valley.utm)
+
+s_amj <- stack(eeflux_75_mask, chirps_75_spring)
+
+fun=function(x) { if (is.na(x[1])){ NA } else { m <- lm(x[1:35] ~ x[36:70]);summary(m)$r.squared }}
+r.squared_amj <- calc(s_amj, fun)
+
+#R-squared is lower for AMJ than 125-275 comparison
+
+chirps_75_winter <- list.files(path = here("4q_seasonal_data"), 
+                     pattern = "jfm.tif", 
+                     full.names = TRUE) %>% 
+  stack() %>% 
+  projectRaster(to = eeflux_temp) %>% 
+  mask(mask = pdr.valley.utm)
+
+s_jfm <- stack(eeflux_75_mask, chirps_75_winter)
+
+fun=function(x) { if (is.na(x[1])){ NA } else { m <- lm(x[1:35] ~ x[36:70]);summary(m)$r.squared }}
+r.squared_jfm <- calc(s_jfm, fun)
+
+# Even lower for JFM
+
+chirps_75_summer <- list.files(path = here("4q_seasonal_data"), 
+                     pattern = "jas.tif", 
+                     full.names = TRUE) %>% 
+  stack() %>% 
+  projectRaster(to = eeflux_temp) %>% 
+  mask(mask = pdr.valley.utm)
+
+s_jas <- stack(eeflux_75_mask, chirps_75_summer)
+
+fun=function(x) { if (is.na(x[1])){ NA } else { m <- lm(x[1:35] ~ x[36:70]);summary(m)$r.squared }}
+r.squared_jas <- calc(s_jas, fun)
+
+chirps_75_fall <- list.files(path = here("4q_seasonal_data"), 
+                     pattern = "ond.tif", 
+                     full.names = TRUE) %>% 
+  stack() %>% 
+  projectRaster(to = eeflux_temp) %>% 
+  mask(mask = pdr.valley.utm)
+
+s_ond <- stack(eeflux_75_mask, chirps_75_fall)
+
+fun=function(x) { if (is.na(x[1])){ NA } else { m <- lm(x[1:35] ~ x[36:70]);summary(m)$r.squared }}
+r.squared_ond <- calc(s_ond, fun)
+
+# All 4 seasonal correlations have lower R-squared than annual-to-annual
 ```
 
