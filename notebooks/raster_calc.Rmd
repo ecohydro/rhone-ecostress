@@ -316,16 +316,24 @@ mclapply(chirps, chirps.clip.SA)
  
  
  
-```{r}crs(e)
+```{r}
 # Writing a function to rename eeflux
 
 # Make folder for each site, dump .zip folders, create list of files
 
-auto_eeflux <- function(x) {for .zip in (x)
-  y <- unzip(x)
-  y <- raster(y)
+ISP_list <- list.files(here("rasters/eeflux/ISP"), 
+                       pattern = ".zip",
+                       full.names = TRUE)
+
+auto_unzip <- function(x){for (zip in x)
+  x <- unzip(zip, overwrite = TRUE, exdir = here("rasters/eeflux/ISP"))
   # Use lubridate - how to specify character positions? Also rename PDR rasters? For loop?
 }
+
+# Attempt to write rename function, got code from Marc
+# auto_rename <- function(x){for (tif in x)
+#   date <-  lubridate::yday(sub("......", "", basename(tif))
+#   }
 
 ```
  
@@ -541,6 +549,10 @@ f <- summary(m)$fstatistic
 	attributes(p) <- NULL
 	return(p) }}
 p.val <- calc(s, fun)
+writeRaster(x = p.val,
+              filename = here("raster_download/p_val_125_275_pdr.tif"),
+              format = 'GTiff',
+            overwrite = TRUE)
 
 #Try a seasonal regression - April/May/June
 chirps_75_spring <- list.files(path = here("4q_seasonal_data"), 
