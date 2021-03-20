@@ -17,6 +17,7 @@ library(sf)
 library(parallel)
 library(lubridate)
 library(lfstat)
+library(stringr)
 ```
 
 Master notebook for raster transformations, Rhone project. See raster_test.rmd for applying Data Carpentry workshop to Rhone data, see DC_raster_tutorial.rmd for finished workshop modules
@@ -330,12 +331,31 @@ auto_unzip <- function(x){for (zip in x)
   # Use lubridate - how to specify character positions? Also rename PDR rasters? For loop?
 }
 
-# Attempt to write rename function, got code from Marc
-# auto_rename <- function(x){for (tif in x)
-#   date <-  lubridate::yday(sub("......", "", basename(tif))
-#   }
+# Write rename function, code help from Marc
+auto_rename <- function(x){for (tif in x)
+  year <- substr(x, start=63, stop=66)
+  day <- substr(x, start = 67, stop = 69) %>% 
+    as.numeric()
+  nye <- "01-01"
+  date <- as.Date(day, origin = paste(year, nye, sep = "-"))
+  
+  site <- "BRC"
+  
+  name <- paste0(date, "-ET-", site)
+  path <- paste0(dirname(x), "/", name, ".tif")
 
-```
+  file.rename(x, path)
+}
+
+ISP_tif <- list.files(here("rasters/eeflux/ISP"), 
+                       pattern = ".tif",
+                       full.names = TRUE)
+
+BRC_tif <- list.files(here("rasters/eeflux/BRC"),
+                      pattern = ".tif",
+                      full.names = TRUE)
+
+ ```
  
 ```{r}
 # Function to stack chirps by year, crop to pdr valleys
