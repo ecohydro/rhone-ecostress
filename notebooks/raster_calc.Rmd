@@ -355,7 +355,7 @@ BRC_tif <- list.files(here("rasters/eeflux/BRC"),
                       pattern = ".tif",
                       full.names = TRUE)
 
- ```
+```
  
 ```{r}
 # Function to stack chirps by year, crop to pdr valleys
@@ -364,11 +364,24 @@ pdr.valley.shp <- sf::st_read(here("rasters/bbox/pdr_bbox/bd_foret_pdr.shp")) #%
   st_transform(crs = crs(eeflux_temp))
 # Use sf package, readOGR gives weird file structure, sf should work as crop()
 # Convert shp from LCC to UTM (eeflux) - don't have to reproject chirps (but clipped rasters are already in lcc!)
+  
+isp.valley.shp <- sf::st_read(here("rasters/bbox/isp_bbox/bd_foret_isp.shp"))
 
-eeflux_temp <- raster(here('rasters/eeflux/PDR/2020_08_25_et.tif')) %>% 
-  projectRaster(crs = crs(pdr.valley.shp),
-                extent = extent(pdr.valley.shp)) %>% 
-  raster::mask(mask = pdr.valley.shp)
+brc.valley.shp <- sf::st_read(here("rasters/bbox/brc_bbox/bd_foret_brc.shp"))
+
+# Set to updated valley mask
+eeflux_temp <- raster(here('rasters/eeflux/ISP/2020-08-27-ET-ISP.tif')) %>% 
+  projectRaster(crs = crs(isp.valley.shp),
+                extent = extent(isp.valley.shp)) %>% 
+  raster::mask(mask = isp.valley.shp)
+
+# Create second mask to run simultaneously on anvil
+eeflux_temp_brc <- raster(here('rasters/eeflux/BRC/2020-07-26-ET-BRC.tif')) %>% 
+  projectRaster(crs = crs(brc.valley.shp),
+                extent = extent(brc.valley.shp)) %>% 
+  raster::mask(mask = brc.valley.shp)
+
+writeRaster(eeflux_temp_brc, here("rasters/bbox/brc_bbox/brc_crop.tif"), format = "GTiff")
   
 chirps.clipped <- list.files(here('rasters/chirps-clipped'),
                              full.names = TRUE)
@@ -391,7 +404,7 @@ wy1981 <- raster_df %>%
   
 x = wy1981$f
 
-water_years <- c(2016:2020)
+water_years <- c(1984:2020)
 
 crop_stack <- function(y){
   
@@ -410,13 +423,14 @@ crop_stack <- function(y){
   
     wystack_2 <- projectRaster(wystack, to = eeflux_temp) # converted eeflux to lcc proj above
     
-    wystack_3 <- mask(wystack_2, mask = pdr.valley.shp)
+    wystack_3 <- mask(wystack_2, mask = isp.valley.shp) # change for new site
     
     wy_total <- wystack_3 %>% calc(fun = sum, na.rm = TRUE)
     
+    # Change for new site
     writeRaster(wy_total,
-                filename = here('rasters/chirps-wy/chirps-pdr', 
-                                paste("pdr_chirps_", y, ".tif", sep = '')),
+                filename = here('rasters/chirps-wy/chirps-isp', 
+                                paste("isp_chirps_", y, ".tif", sep = '')),
                 overwrite = TRUE)
   
   }
