@@ -369,6 +369,12 @@ isp.valley.shp <- sf::st_read(here("rasters/bbox/isp_bbox/bd_foret_isp.shp"))
 
 brc.valley.shp <- sf::st_read(here("rasters/bbox/brc_bbox/bd_foret_brc.shp"))
 
+brc.valley.shp2 <- readOGR( 
+  dsn= here("rasters/bbox/brc_bbox/bd_foret_brc.shp"), 
+  #layer="bd_foret_brc",
+  verbose=FALSE
+) # From https://www.r-graph-gallery.com/168-load-a-shape-file-into-r.html
+
 # Set to updated valley mask
 eeflux_temp <- raster(here('rasters/eeflux/ISP/2020-08-27-ET-ISP.tif')) %>% 
   projectRaster(crs = crs(isp.valley.shp),
@@ -377,11 +383,13 @@ eeflux_temp <- raster(here('rasters/eeflux/ISP/2020-08-27-ET-ISP.tif')) %>%
 
 # Create second mask to run simultaneously on anvil
 eeflux_temp_brc <- raster(here('rasters/eeflux/BRC/2020-07-26-ET-BRC.tif')) %>% 
-  projectRaster(crs = crs(brc.valley.shp),
-                extent = extent(brc.valley.shp)) %>% 
-  raster::mask(mask = brc.valley.shp)
+  projectRaster(crs = crs(brc.valley.shp2),
+                extent = extent(brc.valley.shp2)) %>% 
+  raster::mask(mask = brc.valley.shp2)
 
-writeRaster(eeflux_temp_brc, here("rasters/bbox/brc_bbox/brc_crop.tif"), format = "GTiff")
+eeflux_temp_brc2 <- raster(here('rasters/bbox/brc_bbox/brc_crop.tif'))
+
+writeRaster(eeflux_temp_brc, here("rasters/bbox/brc_bbox/brc_crop2.tif"), format = "GTiff")
   
 chirps.clipped <- list.files(here('rasters/chirps-clipped'),
                              full.names = TRUE)
@@ -404,7 +412,7 @@ wy1981 <- raster_df %>%
   
 x = wy1981$f
 
-water_years <- c(1984:2020)
+water_years <- c(1981:2020)
 
 crop_stack <- function(y){
   
@@ -415,22 +423,23 @@ crop_stack <- function(y){
     wy <- raster_df %>% 
       filter(wateryear == y) %>%
       dplyr::select(-wateryear) %>% 
-      .$f 
+      .$f %>% 
+      as.vector()
     
   suppressWarnings({ # This says run wystack, and don't give crs warnings (will run faster)
-      wystack <- stack(wy)
+      wystack <- raster::stack(wy)
     })
   
-    wystack_2 <- projectRaster(wystack, to = eeflux_temp) # converted eeflux to lcc proj above
+    wystack_2 <- projectRaster(wystack, to = eeflux_temp_brc2) # converted eeflux to lcc proj above
     
-    wystack_3 <- mask(wystack_2, mask = isp.valley.shp) # change for new site
+    wystack_3 <- mask(wystack_2, mask = brc.valley.shp2) # change for new site
     
     wy_total <- wystack_3 %>% calc(fun = sum, na.rm = TRUE)
     
     # Change for new site
     writeRaster(wy_total,
-                filename = here('rasters/chirps-wy/chirps-isp', 
-                                paste("isp_chirps_", y, ".tif", sep = '')),
+                filename = here('rasters/chirps-wy/chirps-brc', 
+                                paste("brc_chirps_", y, ".tif", sep = '')),
                 overwrite = TRUE)
   
   }
