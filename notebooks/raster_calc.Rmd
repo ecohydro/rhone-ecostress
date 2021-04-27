@@ -383,9 +383,9 @@ eeflux_temp <- raster(here('rasters/eeflux/ISP/2020-08-27-ET-ISP.tif')) %>%
 
 # Create second mask to run simultaneously on anvil
 eeflux_temp_brc <- raster(here('rasters/eeflux/BRC/2020-07-26-ET-BRC.tif')) %>% 
-  projectRaster(crs = crs(brc.valley.shp2),
-                extent = extent(brc.valley.shp2)) %>% 
-  raster::mask(mask = brc.valley.shp2)
+  projectRaster(crs = crs(brc.valley.shp),
+                extent = extent(brc.valley.shp)) %>% 
+  raster::mask(mask = brc.valley.shp)
 
 eeflux_temp_brc2 <- raster(here('rasters/bbox/brc_bbox/brc_crop.tif'))
 
@@ -546,24 +546,25 @@ plot(dist_corr)
 ```{r}
 # Growing season calculations - https://statnmap.com/2018-01-27-spatial-correlation-between-rasters/
 pdr.valley.utm <- st_transform(pdr.valley.shp, 32610)
+isp.valley.utm <- st_transform(isp.valley.shp, 32610)
 
-eeflux_75_rasters <- list.files(path = here("ee_growing_season_integrated"), 
+eeflux_75_rasters <- list.files(path = here("rasters/ee_growing_season_integrated_brc"), 
                      pattern = ".tif", 
                      full.names = TRUE)
 
 eeflux_75_stack <- stack(eeflux_75_rasters) %>% 
-  projectRaster(to = eeflux_temp)
+  projectRaster(to = eeflux_temp_brc)
 
-eeflux_75_mask <- mask(eeflux_75_stack, mask = pdr.valley.shp)
+eeflux_75_mask <- mask(eeflux_75_stack, mask = brc.valley.shp)
 
-chirps_75_rasters <- list.files(path = here("ee_season_precip_data"), 
+chirps_75_rasters <- list.files(path = here("rasters/ee_season_precip_data"), 
                      pattern = ".tif", 
                      full.names = TRUE)
 
 chirps_75_stack <- stack(chirps_75_rasters) %>% 
-  projectRaster(to = eeflux_temp)
+  projectRaster(to = eeflux_temp_brc)
 
-chirps_75_mask <- mask(chirps_75_stack, mask = pdr.valley.shp)
+chirps_75_mask <- mask(chirps_75_stack, mask = brc.valley.shp)
 
 #Pixel-wise regression, from: https://matinbrandt.wordpress.com/2014/05/26/pixel-wise-regression-between-two-raster-time-series/
 s <- stack(eeflux_75_mask, chirps_75_mask)
@@ -571,7 +572,7 @@ s <- stack(eeflux_75_mask, chirps_75_mask)
 fun=function(x) { if (is.na(x[1])){ NA } else { lm(x[1:35] ~ x[36:70])$coefficients[2] }}
 slope <- calc(s, fun)
 writeRaster(x = slope,
-              filename = here("raster_download/slope_125_275_pdr.tif"),
+              filename = here("rasters/raster_download/slope_125_275_brc.tif"),
               format = 'GTiff',
             overwrite = TRUE)
 
@@ -581,7 +582,7 @@ intercept <- calc(s, fun)
 fun=function(x) { if (is.na(x[1])){ NA } else { m <- lm(x[1:35] ~ x[36:70]);summary(m)$r.squared }}
 r.squared <- calc(s, fun)
 writeRaster(x = r.squared,
-              filename = here("raster_download/r_squared_125_275_pdr.tif"),
+              filename = here("rasters/raster_download/r_squared_125_275_brc.tif"),
               format = 'GTiff',
             overwrite = TRUE)
 
@@ -593,7 +594,7 @@ f <- summary(m)$fstatistic
 	return(p) }}
 p.val <- calc(s, fun)
 writeRaster(x = p.val,
-              filename = here("raster_download/p_val_125_275_pdr.tif"),
+              filename = here("rasters/raster_download/p_val_125_275_brc.tif"),
               format = 'GTiff',
             overwrite = TRUE)
 

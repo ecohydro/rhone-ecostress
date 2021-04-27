@@ -26,9 +26,6 @@ library(stringr)
 
 
 ``` {r}
-chirps.clipped <- list.files(here('rasters/chirps-clipped'),
-                             full.names = TRUE)
-
 # Function to stack chirps by year, crop to pdr valleys
 
 pdr.valley.shp <- sf::st_read(here("rasters/bbox/pdr_bbox/bd_foret_pdr.shp")) #%>% 
@@ -74,16 +71,7 @@ raster_df <- data.frame(f = chirps.clipped) %>% # Take chirps.clipped, give name
       str_extract(chirps.clipped, pattern = "[0-9]{4}\\.[0-9]{2}\\.[0-9]{2}")),
     origin = 'usgs'))
 
-class(raster_df) # Want to feed raster a character vector (filenames)
-
-wy1981 <- raster_df %>% 
-  filter(wateryear == 1981) %>% 
-  dplyr::select(-wateryear) %>% 
-  .$f #. says take object piped in and give column f
-  
-x = wy1981$f
-
-water_years <- c(1981:2020)
+water_years <- c(1984:2020)
 
 crop_stack <- function(y){
   
@@ -94,23 +82,22 @@ crop_stack <- function(y){
     wy <- raster_df %>% 
       filter(wateryear == y) %>%
       dplyr::select(-wateryear) %>% 
-      .$f %>% 
-      as.vector()
+      .$f
     
   suppressWarnings({ # This says run wystack, and don't give crs warnings (will run faster)
       wystack <- raster::stack(wy)
     })
   
-    wystack_2 <- projectRaster(wystack, to = eeflux_temp_brc2) # converted eeflux to lcc proj above
+    wystack_2 <- projectRaster(wystack, to = eeflux_temp) # converted eeflux to lcc proj above
     
-    wystack_3 <- mask(wystack_2, mask = brc.valley.shp2) # change for new site
+    wystack_3 <- mask(wystack_2, mask = isp.valley.shp) # change for new site
     
     wy_total <- wystack_3 %>% calc(fun = sum, na.rm = TRUE)
     
     # Change for new site
     writeRaster(wy_total,
-                filename = here('rasters/chirps-wy/chirps-brc', 
-                                paste("brc_chirps_", y, ".tif", sep = '')),
+                filename = here('rasters/chirps-wy/chirps-isp', 
+                                paste("isp_chirps_", y, ".tif", sep = '')),
                 overwrite = TRUE)
   
   }
