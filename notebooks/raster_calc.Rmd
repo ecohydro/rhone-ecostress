@@ -365,9 +365,9 @@ pdr.valley.shp <- sf::st_read(here("rasters/bbox/pdr_bbox/bd_foret_pdr.shp")) #%
 # Use sf package, readOGR gives weird file structure, sf should work as crop()
 # Convert shp from LCC to UTM (eeflux) - don't have to reproject chirps (but clipped rasters are already in lcc!)
   
-isp.valley.shp <- sf::st_read(here("rasters/bbox/isp_bbox/bd_foret_isp.shp"))
+isp.valley.shp <- sf::st_read(here("rasters/bbox/isp_bbox/bd_foret_isp_filtered.shp"))
 
-brc.valley.shp <- sf::st_read(here("rasters/bbox/brc_bbox/bd_foret_brc.shp"))
+brc.valley.shp <- sf::st_read(here("rasters/bbox/brc_bbox/bd_foret_brc_filtered.shp"))
 
 brc.valley.shp2 <- readOGR( 
   dsn= here("rasters/bbox/brc_bbox/bd_foret_brc.shp"), 
@@ -545,7 +545,7 @@ plot(dist_corr)
 
 ```{r}
 # Growing season calculations - https://statnmap.com/2018-01-27-spatial-correlation-between-rasters/
-pdr.valley.utm <- st_transform(pdr.valley.shp, 32610)
+brc.valley.utm <- st_transform(brc.valley.shp, 32610)
 isp.valley.utm <- st_transform(isp.valley.shp, 32610)
 
 eeflux_75_rasters <- list.files(path = here("rasters/ee_growing_season_integrated_brc"), 
@@ -557,7 +557,7 @@ eeflux_75_stack <- stack(eeflux_75_rasters) %>%
 
 eeflux_75_mask <- mask(eeflux_75_stack, mask = brc.valley.shp)
 
-chirps_75_rasters <- list.files(path = here("rasters/ee_season_precip_data"), 
+chirps_75_rasters <- list.files(path = here("rasters/ee_season_precip_data_brc"), 
                      pattern = ".tif", 
                      full.names = TRUE)
 
