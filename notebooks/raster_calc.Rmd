@@ -3,8 +3,7 @@ title: "Raster test"
 output: html_notebook
 ---
 
-```{r}
-#Housekeeping
+```{r housekeeping}
 library(tidyverse)
 library(raster)
 library(rgdal)
@@ -22,7 +21,9 @@ library(stringr)
 
 Master notebook for raster transformations, Rhone project. See raster_test.rmd for applying Data Carpentry workshop to Rhone data, see DC_raster_tutorial.rmd for finished workshop modules
 
-Mtg w/ Ryan 8/7:
+Projection used is Lambert Conformal Conic (code 32610)
+
+Mtg w/ Ryan 8/7/20:
 
 Make a bounding box (could be general and make it generous so reproject will remain insite) or specific coordinates
 -bbox function can get bounding box
@@ -34,7 +35,7 @@ Look at correlations, look @ chirps lit on FTP server
 -dopar library (parallel processing R), splits for-loop (slow) into groups of tasks, distributed to processer cores
 -can raster stack the chirps data & do analysis that way, parallelized correlation on 2 time series
 
-```{r}
+```{r reproject raster}
 # Data Carpentry reproject raster tutorial - Rhone data https://datacarpentry.org/r-raster-vector-geospatial/03-raster-reproject-in-r/index.html
 
 eeflux_1985 <- raster(here("rasters/pdr_eeflux/1985_07_08_et.tif"))
@@ -87,7 +88,7 @@ ggplot() +
 ```
 
 
-```{r}
+```{r CHIRPS bbox test (not used except for coordinate info)}
 # Initial bbox approach + notes from Casey
 # Trying to create a bounding box according to this approach: https://twitter.com/TimSalabim3/status/1063099774977667072?s=20
 # (bbox function is no longer supported)
@@ -177,8 +178,8 @@ ggplot() +
   coord_sf() 
 ```
 
-``` {r}
-# Unzipping .gz files - finished
+``` {r gz unzip (for CHIRPS data)}
+# Unzipping .gz files (download format for chirps) - finished
   
 chirps <- list.files(path = here("rasters/chirps"), 
                      pattern = ".gz", 
@@ -193,7 +194,7 @@ list.dirs(path = "serdp/")
 
 ```
  
-```{r}
+```{r clipping/reprojecting test}
 # Chirps calculations - clipping/reprojecting function
 
 # From Ryan phone call - find Lambert conical crs, try to clip/reproject/re-resolution brick of chirps
@@ -250,7 +251,7 @@ parallel::mclapply()
 
 ```
  
-```{r}
+```{r final CHIRPS clipping fxn from global to watershed scale}
 # Final chirps clipping function (w/ help from Casey O'Hara)
 rhone.bb <- matrix(c(4,43,6,47), nrow = 2)
 rhone.area <- raster::extent(rhone.bb)
@@ -266,6 +267,8 @@ ps = Polygons(list(p),1)
 sps = SpatialPolygons(list(ps))
 plot(sps)
 
+# Creating blank bbox using OGR 
+
 data = data.frame(f=99.9)
 spdf = SpatialPolygonsDataFrame(sps,data)
 rhone.area2 <- spdf
@@ -277,7 +280,6 @@ writeOGR(rhone.area2, here("rasters/bbox/rhonebb.GeoJSON"),
          driver = "GeoJSON", 
          overwrite = TRUE
       )
-
 
 chirps.clip.SA <- 
   # This function clips global chirps rasters to the Rhone watershed study area
@@ -312,12 +314,10 @@ chirps <- list.files(path = here("rasters/chirps"),
                      full.names = TRUE, 
                      recursive = TRUE)
  
-mclapply(chirps, chirps.clip.SA)
+mclapply(chirps, chirps.clip.SA) # Use multi-core apply function on server for speed
 ```
  
- 
- 
-```{r}
+```{r unzip/rename EEFLUX}
 # Writing a function to rename eeflux
 
 # Make folder for each site, dump .zip folders, create list of files
@@ -357,7 +357,7 @@ BRC_tif <- list.files(here("rasters/eeflux/BRC"),
 
 ```
  
-```{r}
+```{r crop to forested valley areas (mask imported from Arc) + precip aggregation}
 # Function to stack chirps by year, crop to pdr valleys
 
 pdr.valley.shp <- sf::st_read(here("rasters/bbox/pdr_bbox/bd_foret_pdr.shp")) #%>% 
@@ -369,8 +369,18 @@ isp.valley.shp <- sf::st_read(here("rasters/bbox/isp_bbox/bd_foret_isp_filtered.
 
 brc.valley.shp <- sf::st_read(here("rasters/bbox/brc_bbox/bd_foret_brc_filtered.shp"))
 
+pdr.valley.shp <- sf::st_read(here("rasters/bbox/pdr_bbox/bd_foret_pdr_filtered.shp"))
+
+# OGR functions = workaround for when sf not working, not recommended
+
+isp.valley.shp2 <- readOGR( 
+  dsn= here("rasters/bbox/isp_bbox/bd_foret_isp_filtered.shp"), 
+  #layer="bd_foret_isp",
+  verbose=FALSE
+)
+
 brc.valley.shp2 <- readOGR( 
-  dsn= here("rasters/bbox/brc_bbox/bd_foret_brc.shp"), 
+  dsn= here("rasters/bbox/brc_bbox/bd_foret_brc_filtered.shp"), 
   #layer="bd_foret_brc",
   verbose=FALSE
 ) # From https://www.r-graph-gallery.com/168-load-a-shape-file-into-r.html
@@ -386,6 +396,12 @@ eeflux_temp_brc <- raster(here('rasters/eeflux/BRC/2020-07-26-ET-BRC.tif')) %>%
   projectRaster(crs = crs(brc.valley.shp),
                 extent = extent(brc.valley.shp)) %>% 
   raster::mask(mask = brc.valley.shp)
+
+# PDR mask
+eeflux_temp_pdr <- raster(here('rasters/eeflux/PDR/2007_03_16_et.tif')) %>% 
+  projectRaster(crs = crs(pdr.valley.shp),
+                extent = extent(pdr.valley.shp)) %>% 
+  raster::mask(mask = pdr.valley.shp)
 
 eeflux_temp_brc2 <- raster(here('rasters/bbox/brc_bbox/brc_crop.tif'))
 
@@ -413,6 +429,8 @@ wy1981 <- raster_df %>%
 x = wy1981$f
 
 water_years <- c(1981:2020)
+
+# This function calculates total precip per water year - runs very slowly (4hrs per year)
 
 crop_stack <- function(y){
   
@@ -457,7 +475,6 @@ plot(wy_total)
   ##outfile.base <- chr(y)
   ##outfile <- here('rasters/chirps-wy/chirps-pdr',outfile.base)
 
-
 stack_test <- raster::stack(wy1981)
 res(stack_test) <- 30
 crop(wy-stack, y = pdr.valley.shp, overwrite = TRUE)
@@ -472,7 +489,7 @@ crop_stack(1981)
 
 ```
 
-```{r}
+```{r raster math raw calculations - not integrated}
 plot(raster(here("rasters/chirps-wy/chirps-pdr/pdr_chirps_2019.tif")))
 
 # Raster math
@@ -510,7 +527,7 @@ ggplot() +
     coord_quickmap()
 ```
 
-```{r}
+```{r import centerline from Arc, transect test - not used}
 #Adding centerline to raster
 
 centerline <- sf::read_sf(here("rasters/Rhone_centerline/Rhone_centerline.shp")) %>% 
@@ -543,36 +560,37 @@ dist_corr = dist_masked / correlate_masked
 plot(dist_corr)
 ```
 
-```{r}
+```{r raster math with integrated annual site rasters from Python}
 # Growing season calculations - https://statnmap.com/2018-01-27-spatial-correlation-between-rasters/
 brc.valley.utm <- st_transform(brc.valley.shp, 32610)
 isp.valley.utm <- st_transform(isp.valley.shp, 32610)
 
-eeflux_75_rasters <- list.files(path = here("rasters/ee_growing_season_integrated_brc"), 
+eeflux_75_rasters <- list.files(path = here("rasters/ee_growing_season_integrated_pdr"), 
                      pattern = ".tif", 
                      full.names = TRUE)
 
 eeflux_75_stack <- stack(eeflux_75_rasters) %>% 
-  projectRaster(to = eeflux_temp_brc)
+  projectRaster(to = eeflux_temp_pdr)
 
-eeflux_75_mask <- mask(eeflux_75_stack, mask = brc.valley.shp)
+eeflux_75_mask <- mask(eeflux_75_stack, mask = pdr.valley.shp)
 
-chirps_75_rasters <- list.files(path = here("rasters/ee_season_precip_data_brc"), 
+chirps_75_rasters <- list.files(path = here("rasters/ee_season_precip_data_pdr"), 
                      pattern = ".tif", 
                      full.names = TRUE)
 
 chirps_75_stack <- stack(chirps_75_rasters) %>% 
-  projectRaster(to = eeflux_temp_brc)
+  projectRaster(to = eeflux_temp_pdr)
 
-chirps_75_mask <- mask(chirps_75_stack, mask = brc.valley.shp)
+chirps_75_mask <- mask(chirps_75_stack, mask = pdr.valley.shp)
 
 #Pixel-wise regression, from: https://matinbrandt.wordpress.com/2014/05/26/pixel-wise-regression-between-two-raster-time-series/
 s <- stack(eeflux_75_mask, chirps_75_mask)
 
-fun=function(x) { if (is.na(x[1])){ NA } else { lm(x[1:35] ~ x[36:70])$coefficients[2] }}
+fun=function(x) { if (is.na(x[1])){ NA } else { lm(x[1:35] ~ x[36:70])$coefficients[2] }} 
+# Important to check that correct rasters are referenced in lm ^ check years in stack using s[1]
 slope <- calc(s, fun)
 writeRaster(x = slope,
-              filename = here("rasters/raster_download/slope_125_275_brc.tif"),
+              filename = here("rasters/raster_download/slope_125_275_pdr.tif"),
               format = 'GTiff',
             overwrite = TRUE)
 
@@ -582,7 +600,7 @@ intercept <- calc(s, fun)
 fun=function(x) { if (is.na(x[1])){ NA } else { m <- lm(x[1:35] ~ x[36:70]);summary(m)$r.squared }}
 r.squared <- calc(s, fun)
 writeRaster(x = r.squared,
-              filename = here("rasters/raster_download/r_squared_125_275_brc.tif"),
+              filename = here("rasters/raster_download/r_squared_125_275_pdr.tif"),
               format = 'GTiff',
             overwrite = TRUE)
 
@@ -594,11 +612,11 @@ f <- summary(m)$fstatistic
 	return(p) }}
 p.val <- calc(s, fun)
 writeRaster(x = p.val,
-              filename = here("rasters/raster_download/p_val_125_275_brc.tif"),
+              filename = here("rasters/raster_download/p_val_125_275_pdr.tif"),
               format = 'GTiff',
             overwrite = TRUE)
 
-#Try a seasonal regression - April/May/June
+#Try each seasonal regression - April/May/June
 chirps_75_spring <- list.files(path = here("4q_seasonal_data"), 
                      pattern = "amj.tif", 
                      full.names = TRUE) %>% 
