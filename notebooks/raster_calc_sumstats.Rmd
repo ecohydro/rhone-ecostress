@@ -1,0 +1,132 @@
+---
+title: "raster summary stats: pvalue, r2, slope"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+#Housekeeping
+library(tidyverse)
+library(raster)
+library(here)
+library(sp)
+library(sf)
+library(stringr)
+library(tidyr)
+```
+
+## Read in rasters of correlations (p-value, R squared, and slope)
+```{r}
+# p-values
+pval_brc <- raster(here('rasters/correlations/p_val_125_275_brc.tif'))
+pval_isp <- raster(here('rasters/correlations/p_val_125_275_isp.tif'))
+pval_pdr <- raster(here('rasters/correlations/p_val_125_275_pdr.tif'))
+
+# r squared
+r2_brc <- raster(here('rasters/correlations/r_squared_125_275_brc.tif'))
+r2_isp <- raster(here('rasters/correlations/r_squared_125_275_isp.tif'))
+r2_pdr <- raster(here('rasters/correlations/p_val_125_275_pdr.tif'))
+
+# slope
+slope_brc <- raster(here('rasters/correlations/slope_125_275_brc.tif'))
+slope_isp <- raster(here('rasters/correlations/slope_125_275_isp.tif'))
+slope_pdr <- raster(here('rasters/correlations/slope_125_275_pdr.tif'))
+
+```
+
+# p-value stats
+```{r}
+# means 
+pval_brc_mean <-cellStats(pval_brc, 'mean', na.rm=TRUE)
+pval_isp_mean <-cellStats(pval_isp, 'mean', na.rm=TRUE)
+pval_pdr_mean <- cellStats(pval_pdr, 'mean', na.rm=TRUE)
+
+# max
+pval_brc_max <-cellStats(pval_brc, 'max', na.rm=TRUE)
+pval_isp_max <-cellStats(pval_isp, 'max', na.rm=TRUE)
+pval_pdr_max <- cellStats(pval_pdr, 'max', na.rm=TRUE)
+
+# min
+pval_brc_min <-cellStats(pval_brc, 'min', na.rm=TRUE)
+pval_isp_min <-cellStats(pval_isp, 'min', na.rm=TRUE)
+pval_pdr_min <- cellStats(pval_pdr, 'min', na.rm=TRUE)
+
+# sd 
+pval_brc_sd <-cellStats(pval_brc, 'sd', na.rm=TRUE)
+pval_isp_sd <-cellStats(pval_isp, 'sd', na.rm=TRUE)
+pval_pdr_sd <- cellStats(pval_pdr, 'sd', na.rm=TRUE)
+
+# p value df
+pvalstats <- data.frame(pval_brc_mean,pval_isp_mean,pval_pdr_mean, pval_brc_max, pval_isp_max, pval_pdr_max, pval_brc_min, pval_isp_min, pval_pdr_min,pval_brc_sd, pval_isp_sd, pval_pdr_sd ) %>%  
+  pivot_longer(cols = pval_brc_mean:pval_pdr_sd,
+               names_to = "stat",
+               values_to = " value") %>%  
+  separate(stat, c("type", "site", "stat"), "_")
+```
+
+# r-squared stats
+```{r}
+# means 
+r2_brc_mean <-cellStats(r2_brc, 'mean', na.rm=TRUE)
+r2_isp_mean <-cellStats(r2_isp, 'mean', na.rm=TRUE)
+r2_pdr_mean <- cellStats(r2_pdr, 'mean', na.rm=TRUE)
+
+# max
+r2_brc_max <-cellStats(r2_brc, 'max', na.rm=TRUE)
+r2_isp_max <-cellStats(r2_isp, 'max', na.rm=TRUE)
+r2_pdr_max <- cellStats(r2_pdr, 'max', na.rm=TRUE)
+
+# min
+r2_brc_min <-cellStats(r2_brc, 'min', na.rm=TRUE)
+r2_isp_min <-cellStats(r2_isp, 'min', na.rm=TRUE)
+r2_pdr_min <- cellStats(r2_pdr, 'min', na.rm=TRUE)
+
+# sd 
+r2_brc_sd <-cellStats(r2_brc, 'sd', na.rm=TRUE)
+r2_isp_sd <-cellStats(r2_isp, 'sd', na.rm=TRUE)
+r2_pdr_sd <- cellStats(r2_pdr, 'sd', na.rm=TRUE)
+
+# r squared df
+r2stats <- data.frame(r2_brc_mean,r2_isp_mean,r2_pdr_mean, r2_brc_max, r2_isp_max, r2_pdr_max, r2_brc_min, r2_isp_min, r2_pdr_min, r2_brc_sd, r2_isp_sd, r2_pdr_sd ) %>%
+  pivot_longer(cols = r2_brc_mean:r2_pdr_sd,
+               names_to = "stat",
+               values_to = " value") %>% 
+  separate(stat, c("type", "site", "stat"), "_")
+```
+
+
+# slope stats
+```{r}
+# means 
+slope_brc_mean <-cellStats(slope_brc, 'mean', na.rm=TRUE)
+slope_isp_mean <-cellStats(slope_isp, 'mean', na.rm=TRUE)
+slope_pdr_mean <- cellStats(slope_pdr, 'mean', na.rm=TRUE)
+
+# max
+slope_brc_max <-cellStats(slope_brc, 'max', na.rm=TRUE)
+slope_isp_max <-cellStats(slope_isp, 'max', na.rm=TRUE)
+slope_pdr_max <- cellStats(slope_pdr, 'max', na.rm=TRUE)
+
+# min
+slope_brc_min <-cellStats(slope_brc, 'min', na.rm=TRUE)
+slope_isp_min <-cellStats(slope_isp, 'min', na.rm=TRUE)
+slope_pdr_min <- cellStats(slope_pdr, 'min', na.rm=TRUE)
+
+# sd 
+slope_brc_sd <-cellStats(slope_brc, 'sd', na.rm=TRUE)
+slope_isp_sd <-cellStats(slope_isp, 'sd', na.rm=TRUE)
+slope_pdr_sd <- cellStats(slope_pdr, 'sd', na.rm=TRUE)
+
+# slope df
+slopestats <- data.frame(slope_brc_mean,slope_isp_mean,slope_pdr_mean, slope_brc_max, slope_isp_max, slope_pdr_max, slope_brc_min, slope_isp_min, slope_pdr_min, slope_brc_sd, slope_isp_sd, slope_pdr_sd ) %>%  pivot_longer(cols = slope_brc_mean:slope_pdr_sd,
+               names_to = "stat",
+               values_to = " value") %>% 
+  separate(stat, c("type", "site", "stat"), "_")
+```
+
+# Final dataframe with all summary stats 
+```{r}
+final_summary_stats <- bind_rows(pvalstats, r2stats, slopestats)
+```
+
