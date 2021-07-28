@@ -220,6 +220,13 @@ chirps_rmna_save <- function(x) {
 lapply_test <- chirps_clip(here("rasters/chirps/chirps-v2.0.1990.07.16.tif"))
   #chirps_clip(here("/rasters/chirps/1981/chirps-v2.0.1981.01.02.tif"))
 
+# chirps_test <- raster(here("rasters/chirps-clipped/chirps-v2.0.2020.06.30-clipped.tif"))
+
+# eeflux_test <- raster(here("rasters/eeflux/BRC/2011-09-28-ET-BRC.tif")) %>% 
+  projectRaster(crs = crs(chirps_test))
+
+crs(eeflux_test) <- crs()
+
 lapply_test_df <- as.data.frame(lapply_test, xy = TRUE)
 
 res(lapply_test)
