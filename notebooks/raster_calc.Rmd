@@ -393,12 +393,11 @@ brc.valley.shp2 <- readOGR(
 ) # From https://www.r-graph-gallery.com/168-load-a-shape-file-into-r.html
 
 # Set to updated valley mask
-eeflux_temp <- raster(here('rasters/eeflux/ISP/2020-08-27-ET-ISP.tif')) %>% 
+eeflux_temp_isp <- raster(here('rasters/eeflux/ISP/2020-08-27-ET-ISP.tif')) %>% 
   projectRaster(crs = crs(isp.valley.shp),
                 extent = extent(isp.valley.shp)) %>% 
   raster::mask(mask = isp.valley.shp)
 
-# Create second mask to run simultaneously on anvil
 eeflux_temp_brc <- raster(here('rasters/eeflux/BRC/2020-07-26-ET-BRC.tif')) %>% 
   projectRaster(crs = crs(brc.valley.shp),
                 extent = extent(brc.valley.shp)) %>% 
@@ -572,54 +571,54 @@ plot(dist_corr)
 brc.valley.utm <- st_transform(brc.valley.shp, 32610)
 isp.valley.utm <- st_transform(isp.valley.shp, 32610)
 
-eeflux_75_rasters <- list.files(path = here("rasters/ee_growing_season_integrated_pdr"), 
+eeflux_75_rasters <- list.files(path = here("rasters/ee_season_mean_brc"), 
                      pattern = ".tif", 
                      full.names = TRUE)
 
 eeflux_75_stack <- stack(eeflux_75_rasters) %>% 
-  projectRaster(to = eeflux_temp_pdr)
+  projectRaster(to = eeflux_temp_brc)
 
-eeflux_75_mask <- mask(eeflux_75_stack, mask = pdr.valley.shp)
+eeflux_75_mask <- mask(eeflux_75_stack, mask = brc.valley.shp)
 
-chirps_75_rasters <- list.files(path = here("rasters/ee_season_precip_data_pdr"), 
+chirps_75_rasters <- list.files(path = here("rasters/wy_total_chirps_brc"), 
                      pattern = ".tif", 
                      full.names = TRUE)
 
 chirps_75_stack <- stack(chirps_75_rasters) %>% 
-  projectRaster(to = eeflux_temp_pdr)
+  projectRaster(to = eeflux_temp_brc)
 
-chirps_75_mask <- mask(chirps_75_stack, mask = pdr.valley.shp)
+chirps_75_mask <- mask(chirps_75_stack, mask = brc.valley.shp)
 
 #Pixel-wise regression, from: https://matinbrandt.wordpress.com/2014/05/26/pixel-wise-regression-between-two-raster-time-series/
 s <- stack(eeflux_75_mask, chirps_75_mask)
 
-fun=function(x) { if (is.na(x[1])){ NA } else { lm(x[1:35] ~ x[36:70])$coefficients[2] }} 
+fun=function(x) { if (is.na(x[1])){ NA } else { lm(x[2:35] ~ x[37:70])$coefficients[2] }} 
 # Important to check that correct rasters are referenced in lm ^ check years in stack using s[1]
 slope <- calc(s, fun)
 writeRaster(x = slope,
-              filename = here("rasters/raster_download/slope_125_275_pdr.tif"),
+              filename = here("rasters/correlations/slope_wy_brc.tif"),
               format = 'GTiff',
             overwrite = TRUE)
 
-fun=function(x) { if (is.na(x[1])){ NA } else { lm(x[1:35] ~ x[36:70])$coefficients[1] }}
+fun=function(x) { if (is.na(x[1])){ NA } else { lm(x[1:36] ~ x[37:72])$coefficients[1] }}
 intercept <- calc(s, fun)
 
-fun=function(x) { if (is.na(x[1])){ NA } else { m <- lm(x[1:35] ~ x[36:70]);summary(m)$r.squared }}
+fun=function(x) { if (is.na(x[1])){ NA } else { m <- lm(x[2:35] ~ x[37:70]);summary(m)$r.squared }}
 r.squared <- calc(s, fun)
 writeRaster(x = r.squared,
-              filename = here("rasters/raster_download/r_squared_125_275_pdr.tif"),
+              filename = here("rasters/correlations/r_squared_wy_brc.tif"),
               format = 'GTiff',
             overwrite = TRUE)
 
 # Integrating p-values into existing workflow using: https://stackoverflow.com/questions/5587676/pull-out-p-values-and-r-squared-from-a-linear-regression
-fun=function(x) { if (is.na(x[1])){ NA } else { m <- lm(x[1:35] ~ x[36:70]);
+fun=function(x) { if (is.na(x[1])){ NA } else { m <- lm(x[2:35] ~ x[37:70]);
 f <- summary(m)$fstatistic
 	p <- pf(f[1],f[2],f[3],lower.tail=F)
 	attributes(p) <- NULL
 	return(p) }}
 p.val <- calc(s, fun)
 writeRaster(x = p.val,
-              filename = here("rasters/raster_download/p_val_125_275_pdr.tif"),
+              filename = here("rasters/correlations/p_val_wy_brc.tif"),
               format = 'GTiff',
             overwrite = TRUE)
 
