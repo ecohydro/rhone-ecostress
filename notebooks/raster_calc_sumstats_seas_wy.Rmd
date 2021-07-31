@@ -1,0 +1,300 @@
+---
+title: "raster_calc_sumstats_seas_wy"
+author: "Elmera Azadpour"
+date: "7/30/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+#Housekeeping
+library(tidyverse)
+library(raster)
+library(here)
+library(sp)
+library(sf)
+library(stringr)
+library(tidyr)
+library(kableExtra)
+```
+
+### read in rasters of correlations (p-value, R squared, and slope)
+```{r}
+## starting with water year (wy) rasters for the 3 sites 
+# p-values wy
+pval_brc_wy <- raster(here('rasters/correlations/p_val_wy_brc.tif'))
+pval_isp_wy <- raster(here('rasters/correlations/p_val_wy_isp.tif'))
+pval_pdr_wy <- raster(here('rasters/correlations/p_val_wy_pdr.tif'))
+
+# r squared wy 
+r2_brc_wy <- raster(here('rasters/correlations/r_squared_wy_brc.tif'))
+r2_isp_wy <- raster(here('rasters/correlations/r_squared_wy_isp.tif'))
+r2_pdr_wy <- raster(here('rasters/correlations/r_squared_wy_pdr.tif'))
+
+# slope wy 
+slope_brc_wy <- raster(here('rasters/correlations/slope_wy_brc.tif'))
+slope_isp_wy <- raster(here('rasters/correlations/slope_wy_isp.tif'))
+slope_pdr_wy <- raster(here('rasters/correlations/slope_wy_pdr.tif'))
+
+
+
+## seasonal rasters for the 3 sites 
+# p-value seasonal(seas)
+pval_brc_seas <- raster(here('rasters/correlations/p_val_seasonal_brc.tif'))
+pval_isp_seas <- raster(here('rasters/correlations/p_val_seasonal_isp.tif'))
+pval_pdr_seas <- raster(here('rasters/correlations/p_val_seasonal_pdr.tif'))
+
+# r squared seasonal 
+r2_brc_seas <- raster(here('rasters/correlations/r_squared_seasonal_brc.tif'))
+r2_isp_seas <- raster(here('rasters/correlations/r_squared_seasonal_isp.tif'))
+r2_pdr_seas <- raster(here('rasters/correlations/r_squared_seasonal_pdr.tif'))
+
+# slope seasonal
+slope_brc_seas <- raster(here('rasters/correlations/slope_seasonal_brc.tif'))
+slope_isp_seas <- raster(here('rasters/correlations/slope_seasonal_isp.tif'))
+slope_pdr_seas <- raster(here('rasters/correlations/slope_seasonal_pdr.tif'))
+
+```
+
+
+
+# p-value stats for wy and seas
+```{r}
+# wy means 
+pval_brc_wy_mean <-cellStats(pval_brc_wy, 'mean', na.rm=TRUE)
+pval_isp_wy_mean <-cellStats(pval_isp_wy, 'mean', na.rm=TRUE)
+pval_pdr_wy_mean <- cellStats(pval_pdr_wy, 'mean', na.rm=TRUE)
+
+# wy max
+pval_brc_wy_max <-cellStats(pval_brc_wy, 'max', na.rm=TRUE)
+pval_isp_wy_max <-cellStats(pval_isp_wy, 'max', na.rm=TRUE)
+pval_pdr_wy_max <- cellStats(pval_pdr_wy, 'max', na.rm=TRUE)
+
+# wy min
+pval_brc_wy_min <-cellStats(pval_brc_wy, 'min', na.rm=TRUE)
+pval_isp_wy_min <-cellStats(pval_isp_wy, 'min', na.rm=TRUE)
+pval_pdr_wy_min <- cellStats(pval_pdr_wy, 'min', na.rm=TRUE)
+
+# wy sd 
+pval_brc_wy_sd <-cellStats(pval_brc_wy, 'sd', na.rm=TRUE)
+pval_isp_wy_sd <-cellStats(pval_isp_wy, 'sd', na.rm=TRUE)
+pval_pdr_wy_sd <- cellStats(pval_pdr_wy, 'sd', na.rm=TRUE)
+
+# seas means 
+pval_brc_seas_mean <-cellStats(pval_brc_seas, 'mean', na.rm=TRUE)
+pval_isp_seas_mean <-cellStats(pval_isp_seas, 'mean', na.rm=TRUE)
+pval_pdr_seas_mean <- cellStats(pval_pdr_seas, 'mean', na.rm=TRUE)
+
+# seas max
+pval_brc_seas_max <-cellStats(pval_brc_seas, 'max', na.rm=TRUE)
+pval_isp_seas_max <-cellStats(pval_isp_seas, 'max', na.rm=TRUE)
+pval_pdr_seas_max <- cellStats(pval_pdr_seas, 'max', na.rm=TRUE)
+
+# seas min
+pval_brc_seas_min <-cellStats(pval_brc_seas, 'min', na.rm=TRUE)
+pval_isp_seas_min <-cellStats(pval_isp_seas, 'min', na.rm=TRUE)
+pval_pdr_seas_min <- cellStats(pval_pdr_seas, 'min', na.rm=TRUE)
+
+# seas sd 
+pval_brc_seas_sd <-cellStats(pval_brc_seas, 'sd', na.rm=TRUE)
+pval_isp_seas_sd <-cellStats(pval_isp_seas, 'sd', na.rm=TRUE)
+pval_pdr_seas_sd <- cellStats(pval_pdr_seas, 'sd', na.rm=TRUE)
+
+# p value df
+pvalstats <- data.frame(pval_brc_wy_mean,
+                        pval_isp_wy_mean,
+                        pval_pdr_wy_mean,
+                        pval_brc_wy_max,
+                        pval_isp_wy_max,
+                        pval_pdr_wy_max, 
+                        pval_brc_wy_min,
+                        pval_isp_wy_min,
+                        pval_pdr_wy_min,
+                        pval_brc_wy_sd,
+                        pval_isp_wy_sd,
+                        pval_pdr_wy_sd,
+                        pval_brc_seas_mean,
+                        pval_isp_seas_mean,
+                        pval_pdr_seas_mean,
+                        pval_brc_seas_max,
+                        pval_isp_seas_max,
+                        pval_pdr_seas_max, 
+                        pval_brc_seas_min,
+                        pval_isp_seas_min,
+                        pval_pdr_seas_min,
+                        pval_brc_seas_sd,
+                        pval_isp_seas_sd,
+                        pval_pdr_seas_sd
+                        ) %>%  
+  pivot_longer(cols = pval_brc_wy_mean:pval_pdr_seas_sd,
+               names_to = "stat",
+               values_to = "value") %>%  
+  separate(stat, c("type", "site", "time","stat"), "_")
+
+```
+
+
+
+
+# r-squared stats for wy and seas
+```{r}
+# wy means 
+r2_brc_wy_mean <-cellStats(r2_brc_wy, 'mean', na.rm=TRUE)
+r2_isp_wy_mean <-cellStats(r2_isp_wy, 'mean', na.rm=TRUE)
+r2_pdr_wy_mean <- cellStats(r2_pdr_wy, 'mean', na.rm=TRUE)
+
+# wy max
+r2_brc_wy_max <-cellStats(r2_brc_wy, 'max', na.rm=TRUE)
+r2_isp_wy_max <-cellStats(r2_isp_wy, 'max', na.rm=TRUE)
+r2_pdr_wy_max <- cellStats(r2_pdr_wy, 'max', na.rm=TRUE)
+
+# wy min
+r2_brc_wy_min <-cellStats(r2_brc_wy, 'min', na.rm=TRUE)
+r2_isp_wy_min <-cellStats(r2_isp_wy, 'min', na.rm=TRUE)
+r2_pdr_wy_min <- cellStats(r2_pdr_wy, 'min', na.rm=TRUE)
+
+# wy sd 
+r2_brc_wy_sd <-cellStats(r2_brc_wy, 'sd', na.rm=TRUE)
+r2_isp_wy_sd <-cellStats(r2_isp_wy, 'sd', na.rm=TRUE)
+r2_pdr_wy_sd <- cellStats(r2_pdr_wy, 'sd', na.rm=TRUE)
+
+# seas means 
+r2_brc_seas_mean <-cellStats(r2_brc_seas, 'mean', na.rm=TRUE)
+r2_isp_seas_mean <-cellStats(r2_isp_seas, 'mean', na.rm=TRUE)
+r2_pdr_seas_mean <- cellStats(r2_pdr_seas, 'mean', na.rm=TRUE)
+
+# seas max
+r2_brc_seas_max <-cellStats(r2_brc_seas, 'max', na.rm=TRUE)
+r2_isp_seas_max <-cellStats(r2_isp_seas, 'max', na.rm=TRUE)
+r2_pdr_seas_max <- cellStats(r2_pdr_seas, 'max', na.rm=TRUE)
+
+# seas min
+r2_brc_seas_min <-cellStats(r2_brc_seas, 'min', na.rm=TRUE)
+r2_isp_seas_min <-cellStats(r2_isp_seas, 'min', na.rm=TRUE)
+r2_pdr_seas_min <- cellStats(r2_pdr_seas, 'min', na.rm=TRUE)
+
+# seas sd 
+r2_brc_seas_sd <-cellStats(r2_brc_seas, 'sd', na.rm=TRUE)
+r2_isp_seas_sd <-cellStats(r2_isp_seas, 'sd', na.rm=TRUE)
+r2_pdr_seas_sd <- cellStats(r2_pdr_seas, 'sd', na.rm=TRUE)
+
+
+r2stats <- data.frame(r2_brc_wy_mean,
+                        r2_isp_wy_mean,
+                        r2_pdr_wy_mean,
+                        r2_brc_wy_max,
+                        r2_isp_wy_max,
+                        r2_pdr_wy_max, 
+                        r2_brc_wy_min,
+                        r2_isp_wy_min,
+                        r2_pdr_wy_min,
+                        r2_brc_wy_sd,
+                        r2_isp_wy_sd,
+                        r2_pdr_wy_sd,
+                        r2_brc_seas_mean,
+                        r2_isp_seas_mean,
+                        r2_pdr_seas_mean,
+                        r2_brc_seas_max,
+                        r2_isp_seas_max,
+                        r2_pdr_seas_max, 
+                        r2_brc_seas_min,
+                        r2_isp_seas_min,
+                        r2_pdr_seas_min,
+                        r2_brc_seas_sd,
+                        r2_isp_seas_sd,
+                        r2_pdr_seas_sd
+                        ) %>%  
+  pivot_longer(cols = r2_brc_wy_mean:r2_pdr_seas_sd,
+               names_to = "stat",
+               values_to = "value") %>%  
+  separate(stat, c("type", "site", "time","stat"), "_")
+
+```
+
+
+
+# slope stats for wy and seas
+```{r}
+# wy means 
+slope_brc_wy_mean <-cellStats(slope_brc_wy, 'mean', na.rm=TRUE)
+slope_isp_wy_mean <-cellStats(slope_isp_wy, 'mean', na.rm=TRUE)
+slope_pdr_wy_mean <- cellStats(slope_pdr_wy, 'mean', na.rm=TRUE)
+
+# wy max
+slope_brc_wy_max <-cellStats(slope_brc_wy, 'max', na.rm=TRUE)
+slope_isp_wy_max <-cellStats(slope_isp_wy, 'max', na.rm=TRUE)
+slope_pdr_wy_max <- cellStats(slope_pdr_wy, 'max', na.rm=TRUE)
+
+# wy min
+slope_brc_wy_min <-cellStats(slope_brc_wy, 'min', na.rm=TRUE)
+slope_isp_wy_min <-cellStats(slope_isp_wy, 'min', na.rm=TRUE)
+slope_pdr_wy_min <- cellStats(slope_pdr_wy, 'min', na.rm=TRUE)
+
+# wy sd 
+slope_brc_wy_sd <-cellStats(slope_brc_wy, 'sd', na.rm=TRUE)
+slope_isp_wy_sd <-cellStats(slope_isp_wy, 'sd', na.rm=TRUE)
+slope_pdr_wy_sd <- cellStats(slope_pdr_wy, 'sd', na.rm=TRUE)
+
+# seas means 
+slope_brc_seas_mean <-cellStats(slope_brc_seas, 'mean', na.rm=TRUE)
+slope_isp_seas_mean <-cellStats(slope_isp_seas, 'mean', na.rm=TRUE)
+slope_pdr_seas_mean <- cellStats(slope_pdr_seas, 'mean', na.rm=TRUE)
+
+# seas max
+slope_brc_seas_max <-cellStats(slope_brc_seas, 'max', na.rm=TRUE)
+slope_isp_seas_max <-cellStats(slope_isp_seas, 'max', na.rm=TRUE)
+slope_pdr_seas_max <- cellStats(slope_pdr_seas, 'max', na.rm=TRUE)
+
+# seas min
+slope_brc_seas_min <-cellStats(slope_brc_seas, 'min', na.rm=TRUE)
+slope_isp_seas_min <-cellStats(slope_isp_seas, 'min', na.rm=TRUE)
+slope_pdr_seas_min <- cellStats(slope_pdr_seas, 'min', na.rm=TRUE)
+
+# seas sd 
+slope_brc_seas_sd <-cellStats(slope_brc_seas, 'sd', na.rm=TRUE)
+slope_isp_seas_sd <-cellStats(slope_isp_seas, 'sd', na.rm=TRUE)
+slope_pdr_seas_sd <- cellStats(slope_pdr_seas, 'sd', na.rm=TRUE)
+
+slopestats <- data.frame(slope_brc_wy_mean,
+                        slope_isp_wy_mean,
+                        slope_pdr_wy_mean,
+                        slope_brc_wy_max,
+                        slope_isp_wy_max,
+                        slope_pdr_wy_max, 
+                        slope_brc_wy_min,
+                        slope_isp_wy_min,
+                        slope_pdr_wy_min,
+                        slope_brc_wy_sd,
+                        slope_isp_wy_sd,
+                        slope_pdr_wy_sd,
+                        slope_brc_seas_mean,
+                        slope_isp_seas_mean,
+                        slope_pdr_seas_mean,
+                        slope_brc_seas_max,
+                        slope_isp_seas_max,
+                        slope_pdr_seas_max, 
+                        slope_brc_seas_min,
+                        slope_isp_seas_min,
+                        slope_pdr_seas_min,
+                        slope_brc_seas_sd,
+                        slope_isp_seas_sd,
+                        slope_pdr_seas_sd
+                        ) %>%  
+  pivot_longer(cols = slope_brc_wy_mean:slope_pdr_seas_sd,
+               names_to = "stat",
+               values_to = "value") %>%  
+  separate(stat, c("type", "site", "time","stat"), "_")
+
+```
+
+
+# Final dataframe with all summary stats 
+```{r}
+final_summary_stats <- bind_rows(pvalstats, r2stats, slopestats)
+
+write.csv(final_summary_stats, "correlations_table_wy_seas.csv")
+
+final_summary_stats %>% kbl() %>%
+  kable_material(c("striped", "hover"))
+```
